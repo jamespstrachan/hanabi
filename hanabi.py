@@ -20,14 +20,22 @@ op_colours = {
     "grey":   '\033[100m',
     "end":    '\033[0m',
 }
-card_scarcity = [3,2,2,2,1]
+def scarcity(number):
+    return 1 if number == 5 else 3 if number == 1 else 2
 
 def render(list):
     print(''.join([op_colours[l[0]]+' '+str(l[1])+' '+op_colours['end'] for l in list]))
 
 def render_table():
+    print("=================================")
     print("clocks:{}, lives:{} ".format(clocks,lives), end='')
     render([(colour, pile[-1][1]) for colour, pile in table.items()])
+    print("{: <2} remain in deck  ".format(len(deck)))
+    if len(discard):
+        print("discard pile: ")
+        render(discard[-8:])
+    print("=================================")
+    # show discard, cards left
 
 def render_info(player_id):
     info_is = []
@@ -45,7 +53,7 @@ def render_info(player_id):
 def setup():
     global deck
     global hands
-    deck = [(i,j) for i in dict.keys(table) for j in range(1, 6) for _ in range(1, card_scarcity[j-1]+1)]
+    deck = [(i,j) for i in dict.keys(table) for j in range(1, 6) for _ in range(0, scarcity(j))]
     random.shuffle(deck)
     hands = [[deck.pop() for _ in range(5)] for _ in range(num_players)]
 
@@ -54,9 +62,11 @@ def play(card):
     if ( len(table[card[0]]) == 0 and card[1] == 1 )\
     or ( table[card[0]][-1][1] == card[1] - 1 ):
         table[card[0]].append(card)
+        #add clock
     else:
         lives -=1
         discard.append(card)
+        # add die if lives <0
 
 setup()
 render(deck)
@@ -68,9 +78,7 @@ turn = 0
 while gameover == False:
     os.system('clear')
     current_player = turn%num_players
-    print("=================================")
     render_table()
-    print("=================================")
 
     for i, hand in enumerate(hands):
         if i != current_player:
@@ -132,5 +140,9 @@ while gameover == False:
     else:
         print(" Invalid move {}".format(move))
         continue
+
+    os.system('clear')
+    render_table()
+    input("press any key to start next turn")
 
     turn += 1
