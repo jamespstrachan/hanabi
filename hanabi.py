@@ -50,6 +50,7 @@ def setup():
     hands = [[deck.pop() for _ in range(5)] for _ in range(num_players)]
 
 def play(card):
+    global lives
     if ( len(table[card[0]]) == 0 and card[1] == 1 )\
     or ( table[card[0]][-1][1] == card[1] - 1 ):
         table[card[0]].append(card)
@@ -88,16 +89,22 @@ while gameover == False:
         inform_string = ", inform {}".format(', '.join(player_string_list)) if clocks > 0 else ""
     move = input("(p)lay, (d)iscard{}? ".format(inform_string))
 
+    move2 = ''
+    if len(move) == 2:
+        move2 = move[1]
+        move = move[0]
+
     if move == 'i' and num_players == 2:
         move = str(1+(current_player+1)%2)
 
     if move in ['p','d']:
-        card_position = int(input("which card to use? "))
+        card_position = int(move2 if len(move2) else input("which card to use? "))
         card_choice   = hands[current_player].pop(card_position-1)
         if move == 'p':
             play(card_choice)
         else:
             discard.append(card_choice)
+            clocks += 1
         hands[current_player].append(deck.pop())
     elif move.isdigit() and int(move) in range(1, num_players+1) and int(move) != current_player+1:
         if clocks < 1:
@@ -108,7 +115,11 @@ while gameover == False:
         decorated_cols = ['('+c[0] + ')' + c[1:] for c in cols]
         nums = set([card[1] for card in hands[hand_id]])
         while True:
-            new_info = input("tell Player {} what: {}, {}? ".format(move, ', '.join(map(str, nums)), ', '.join(decorated_cols)))
+            if len(move2):
+                new_info = move2
+                move2 = ''
+            else:
+                new_info = input("inform of {}, {}? ".format(', '.join(map(str, nums)), ', '.join(decorated_cols)))
             if (new_info.isdigit() and int(new_info) in nums) or new_info in [x[0] for x in cols]:
                 break
             print("  didn't understand input {}".format(new_info))
