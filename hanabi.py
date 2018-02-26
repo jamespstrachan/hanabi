@@ -32,10 +32,9 @@ def render_table():
     render([(colour, pile[-1][1]) for colour, pile in table.items()])
     print("{: <2} remain in deck  ".format(len(deck)))
     if len(discard):
-        print("discard pile: ")
-        render(discard[-8:])
+        print("discard pile: ", end='')
+        render(discard[-11:])
     print("=================================")
-    # show discard, cards left
 
 def render_info(player_id):
     info_is = []
@@ -53,20 +52,26 @@ def render_info(player_id):
 def setup():
     global deck
     global hands
-    deck = [(i,j) for i in dict.keys(table) for j in range(1, 6) for _ in range(0, scarcity(j))]
+    deck = [(i,j,k) for i in dict.keys(table) for j in range(1, 6) for k in range(0, scarcity(j))]
     random.shuffle(deck)
     hands = [[deck.pop() for _ in range(5)] for _ in range(num_players)]
 
 def play(card):
     global lives
+    global clocks
     if ( len(table[card[0]]) == 0 and card[1] == 1 )\
     or ( table[card[0]][-1][1] == card[1] - 1 ):
         table[card[0]].append(card)
-        #add clock
+        if card[1] == 5:
+            clocks += 1
     else:
+        if lives == 0:
+            os.system('clear')
+            render_table()
+            print("\nYou ran out of lives - game over\n")
+            exit()
         lives -=1
         discard.append(card)
-        # add die if lives <0
 
 setup()
 render(deck)
@@ -110,9 +115,12 @@ while gameover == False:
         card_choice   = hands[current_player].pop(card_position-1)
         if move == 'p':
             play(card_choice)
+            action_description = "played"
         else:
             discard.append(card_choice)
             clocks += 1
+            action_description = "discarded"
+        action_description += " card #{}: {c[0]} {c[1]}".format(card_position, c = card_choice)
         hands[current_player].append(deck.pop())
     elif move.isdigit() and int(move) in range(1, num_players+1) and int(move) != current_player+1:
         if clocks < 1:
@@ -137,11 +145,13 @@ while gameover == False:
             info[hand_id].setdefault(str(card),{'is':set(),'isnt':set()})
             info[hand_id][str(card)]['is' if is_match else 'isnt'].add(new_info)
         clocks -= 1
+        action_description = "informed of any {} cards".format(new_info)
     else:
         print(" Invalid move {}".format(move))
         continue
 
     os.system('clear')
+    print(action_description)
     render_table()
     input("press any key to start next turn")
 
