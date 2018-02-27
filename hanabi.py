@@ -3,8 +3,8 @@ from sys import argv
 
 num_players = 2
 
-cols = ["red","yellow","green","blue","white"]
-table = {col:[(col,0)] for col in cols}
+game_colours = ["red","yellow","green","blue","white"]
+table = [[(colour,0)] for colour in game_colours]
 lives  = 3
 clocks = 8
 discard = []
@@ -32,12 +32,12 @@ def render(list):
 def render_table():
     print("{:=>32}=".format(seed))
     print("clocks:{}, lives:{} ".format(clocks,lives), end='')
-    render([(colour, pile[-1][1]) for colour, pile in table.items()])
+    render([pile[-1] for pile in table])
     print("{: <2} remain in deck  ".format(len(deck)))
     if len(discard):
         print("discard pile: ", end='')
         render(discard[-11:])
-    print("{:=>32}".format(''))
+    print("{:=>33}".format(''))
 
 def render_info(player_id):
     info_is = []
@@ -55,7 +55,7 @@ def render_info(player_id):
 def setup():
     global deck
     global hands
-    deck = [(i,j,k) for i in dict.keys(table)
+    deck = [(i,j,k) for i in game_colours
                     for j in range(1, 6)
                     for k in range(0, scarcity(j))]
     random.shuffle(deck)
@@ -65,9 +65,10 @@ def setup():
 def play(card):
     global lives
     global clocks
-    if ( len(table[card[0]]) == 0 and card[1] == 1 )\
-    or ( table[card[0]][-1][1] == card[1] - 1 ):
-        table[card[0]].append(card)
+    pile = table[game_colours.index(card[0])]
+    if ( len(pile) == 0 and card[1] == 1 )\
+    or ( pile[-1][1] == card[1] - 1 ):
+        pile.append(card)
         if card[1] == 5:
             clocks += 1
     else:
