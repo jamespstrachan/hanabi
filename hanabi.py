@@ -52,9 +52,12 @@ def render_info(player_id):
 def setup():
     global deck
     global hands
-    deck = [(i,j,k) for i in dict.keys(table) for j in range(1, 6) for k in range(0, scarcity(j))]
+    deck = [(i,j,k) for i in dict.keys(table)
+                    for j in range(1, 6)
+                    for k in range(0, scarcity(j))]
     random.shuffle(deck)
-    hands = [[deck.pop() for _ in range(5)] for _ in range(num_players)]
+    hands = [[deck.pop() for _ in range(5)]
+                         for _ in range(num_players)]
 
 def play(card):
     global lives
@@ -86,14 +89,15 @@ while gameover == False:
     render_table()
 
     for i, hand in enumerate(hands):
-        if i != current_player:
-            print("player {}'s hand : ".format(1+i), end='')
-            render(hand)
-            render_info(i)
-
-    print("      your hand : ", end='')
-    render([('grey','?') for _ in range(5)])
-    render_info(current_player)
+        if i == current_player:
+            player_name = "your hand"
+            # todo: make hand auto-fill known 'is' state from info on top of gray default cards
+            hand = [('grey','?') for _ in range(5)]
+        else:
+            player_name = "player {}'s hand".format(1+i)
+        print("{: >15} : ".format(player_name), end='')
+        render(hand)
+        render_info(i)
 
     if num_players == 2:
         inform_string = ", (i)nform"
