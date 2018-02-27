@@ -115,8 +115,9 @@ while gameover == False:
         move2 = move[1]
         move = move[0]
 
+    #make "inform" default to other player in 2 player game
     if move == 'i' and num_players == 2:
-        move = str(1+(current_player+1)%2)
+        move = str(2-current_player)
 
     if move in ['p','d']:
         card_position = int(move2 if len(move2) else input("which card to use? "))
@@ -153,14 +154,14 @@ while gameover == False:
             info[hand_id].setdefault(str(card),{'is':set(),'isnt':set()})
             info[hand_id][str(card)]['is' if is_match else 'isnt'].add(new_info)
         clocks -= 1
-        action_description = "informed of any {} cards".format(new_info)
+        action_description = "told Player {} about {}s".format(hand_id+1, new_info)
     else:
         print(" Invalid move {}".format(move))
         continue
 
     os.system('clear')
-    print(action_description)
+    print("Player {} {}".format(current_player+1,action_description))
     render_table()
-    input("press any key to start next turn")
+    input("Player {} press enter...".format((current_player+1)%num_players+1))
 
     turn += 1
