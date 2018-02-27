@@ -87,28 +87,34 @@ for hand in hands:
 
 gameover = False
 turn = 0
+next_move = ''
 while gameover == False:
-    os.system('clear')
     current_player = turn%num_players
-    render_table()
 
-    for i, hand in enumerate(hands):
-        if i == current_player:
-            player_name = "your hand"
-            # todo: make hand auto-fill known 'is' state from info on top of gray default cards
-            hand = [('grey','?') for _ in range(5)]
+    if len(next_move) != 2:
+        os.system('clear')
+        render_table()
+
+        for i, hand in enumerate(hands):
+            if i == current_player:
+                player_name = "your hand"
+                # todo: make hand auto-fill known 'is' state from info on top of gray default cards
+                hand = [('grey','?') for _ in range(5)]
+            else:
+                player_name = "player {}'s hand".format(1+i)
+            print("{: >15} : ".format(player_name), end='')
+            render(hand)
+            render_info(i)
+
+        if num_players == 2:
+            inform_string = ", (i)nform"
         else:
-            player_name = "player {}'s hand".format(1+i)
-        print("{: >15} : ".format(player_name), end='')
-        render(hand)
-        render_info(i)
+            player_string_list = ["Player ("+str(p+1)+")" for p in range(num_players) if p != current_player]
+            inform_string = ", inform {}".format(', '.join(player_string_list)) if clocks > 0 else ""
 
-    if num_players == 2:
-        inform_string = ", (i)nform"
+        move = input("(p)lay, (d)iscard{}? ".format(inform_string))
     else:
-        player_string_list = ["Player ("+str(p+1)+")" for p in range(num_players) if p != current_player]
-        inform_string = ", inform {}".format(', '.join(player_string_list)) if clocks > 0 else ""
-    move = input("(p)lay, (d)iscard{}? ".format(inform_string))
+        move, next_move = next_move, ''
 
     move2 = ''
     if len(move) == 2:
@@ -162,6 +168,6 @@ while gameover == False:
     os.system('clear')
     print("Player {} {}".format(current_player+1,action_description))
     render_table()
-    input("Player {} press enter...".format((current_player+1)%num_players+1))
+    next_move = input("Player {} press enter...".format((current_player+1)%num_players+1))
 
     turn += 1
