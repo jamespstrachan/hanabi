@@ -1,4 +1,5 @@
-import random, io, sys, os
+import random, io, sys, os, string
+from sys import argv
 
 num_players = 2
 
@@ -10,6 +11,8 @@ discard = []
 deck = []
 hands = []
 info = [{} for _ in range(num_players)]
+seed = argv[1] if len(argv)>1 else ''.join(random.choice(string.ascii_letters + string.digits) for _ in range(5))
+random.seed(seed)
 
 op_colours = {
     "red":    '\033[41m',
@@ -27,14 +30,14 @@ def render(list):
     print(''.join([op_colours[l[0]]+' '+str(l[1])+' '+op_colours['end'] for l in list]))
 
 def render_table():
-    print("=================================")
+    print("{:=>32}=".format(seed))
     print("clocks:{}, lives:{} ".format(clocks,lives), end='')
     render([(colour, pile[-1][1]) for colour, pile in table.items()])
     print("{: <2} remain in deck  ".format(len(deck)))
     if len(discard):
         print("discard pile: ", end='')
         render(discard[-11:])
-    print("=================================")
+    print("{:=>32}".format(''))
 
 def render_info(player_id):
     info_is = []
