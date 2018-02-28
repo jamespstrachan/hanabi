@@ -7,6 +7,7 @@ game_colours = ["red","yellow","green","blue","white"]
 table = [[(colour,0)] for colour in game_colours]
 lives  = 3
 clocks = 8
+max_clocks = 8
 discard_pile = []
 deck = []
 hands = []
@@ -26,51 +27,52 @@ op_colours = {
 def scarcity(number):
     return 1 if number == 5 else 3 if number == 1 else 2
 
-def render_cards(list):
-    return ''.join([op_colours[l[0]]+' '+str(l[1])+' '+op_colours['end'] for l in list])
+def render_cards(list, style="{start} {value} {end}"):
+    return ''.join(style.format(start=op_colours[l[0]], value=str(l[1]), end=op_colours['end']) for l in list)
 
 def render_table():
     op = []
     op += ["{:=>32}=".format(seed)]
     op += ["clocks:{}, lives:{} ".format(clocks,lives) + render_cards([pile[-1] for pile in table])]
-    op += ["{: <2} remain in deck  ".format(len(deck))]
+    op += ["{: >2} remain in deck".format(len(deck))]
     if len(discard_pile):
-        op += ["discard pile: " + render_cards(discard_pile[-11:])]
+        op += ["discard pile : "[len(discard_pile)-33:] + render_cards(discard_pile, style="{start}{value}{end}")]
     op += ["{:=>33}".format('')]
     return "\n".join(op)
 
-def render_info(player_id):
-    info_is = []
-    info_isnt = []
-    for card in hands[player_id]:
-        if str(card) in info[player_id]:
-            info_is.append(''.join(x[0] for x in info[player_id][str(card)]['is']))
-            info_isnt.append(''.join(x[0] for x in info[player_id][str(card)]['isnt']))
+def render_info(id):
+    info_not = []
+    for card in hands[id]:
+        if str(card) in info[id]:
+            info_not.append(''.join(x[0] for x in info[id][str(card)]['not']))
         else:
-            info_is.append('')
-            info_isnt.append('')
-    return "\033[90m       which is : {: ^3}{: ^3}{: ^3}{: ^3}{: ^3}".format(*info_is) + \
-           "\n   which is not : {: ^3}{: ^3}{: ^3}{: ^3}{: ^3}\033[0m".format(*info_isnt)
+            info_not.append('')
+
+    obscured_hand = [(info[id][str(card)]['colour'], info[id][str(card)]['number']) for card in hands[id]]
+    return "        we know : {}".format(render_cards(obscured_hand)) + \
+           "\n\033[90m     and is not : {: ^3}{: ^3}{: ^3}{: ^3}{: ^3}\033[0m".format(*info_not)
 
 def setup():
     global deck
     global hands
+    global info
     deck = [(i,j,k) for i in game_colours
                     for j in range(1, 6)
                     for k in range(0, scarcity(j))]
     random.shuffle(deck)
-    hands = [[deck.pop() for _ in range(5)]
-                         for _ in range(num_players)]
+    hands = [[] for _ in range(num_players)]
+    info = [{} for _ in hands]
+    [replenish_hand(hands, idx, info) for _ in range(5) for idx,_ in enumerate(hands)]
+
 
 def play(card):
     global lives
-    global clocks
     pile = table[game_colours.index(card[0])]
     if ( len(pile) == 0 and card[1] == 1 )\
     or ( pile[-1][1] == card[1] - 1 ):
         pile.append(card)
         if card[1] == 5:
-            clocks += 1
+            add_clock()
     else:
         if lives == 0:
             os.system('clear')
@@ -83,7 +85,16 @@ def play(card):
 def discard(card):
     global clocks
     discard_pile.append(card_choice)
-    clocks += 1
+    add_clock()
+
+def replenish_hand(hands, idx, info):
+    card = deck.pop()
+    hands[idx].append(card)
+    info[idx][str(card)] = {'not':set(),'colour':'end','number':' '}
+
+def add_clock():
+    global clocks
+    clocks += 1 if clocks < max_clocks else 0
 
 setup()
 
@@ -96,18 +107,18 @@ while gameover == False:
     if len(next_move) != 2:
         os.system('clear')
         print(render_table())
-
+        print()
         for i, hand in enumerate(hands):
             if i == current_player:
                 player_name = "your hand"
-                # todo: make hand auto-fill known 'is' state from info on top of gray default cards
-                hand = [('grey','?') for _ in range(5)]
+                top_line = render_cards([("grey", x) for x in "abcde"])
             else:
                 player_name = "player {}'s hand".format(1+i)
+                top_line = render_cards(hand)
             print("{: >15} : ".format(player_name), end='')
-            print(render_cards(hand))
+            print(top_line)
             print(render_info(i))
-
+            print()
         if num_players == 2:
             inform_string = ", (i)nform"
         else:
@@ -118,9 +129,9 @@ while gameover == False:
     else:
         move, next_move = next_move, ''
 
-    move2 = ''
+    submove = ''
     if len(move) == 2:
-        move2 = move[1]
+        submove = move[1]
         move = move[0]
 
     #make "inform" default to other player in 2 player game
@@ -128,8 +139,18 @@ while gameover == False:
         move = str(2-current_player)
 
     if move in ['p','d']:
-        card_position = int(move2 if len(move2) else input("which card to use? "))
-        card_choice   = hands[current_player].pop(card_position-1)
+        while True:
+            if len(submove):
+                hand_position = submove
+                submove = ''
+            else:
+                hand_position = input("which card to use, a-e? ")
+            hand_index = "abcde".find(hand_position)
+            if hand_index > -1:
+                break
+            print("  didn't understand input {}".format(hand_position))
+
+        card_choice = hands[current_player].pop(hand_index)
         if move == 'p':
             play(card_choice)
             action_description = "played"
@@ -137,7 +158,7 @@ while gameover == False:
             discard(card_choice)
             action_description = "discarded"
         action_description += " card: {}".format(render_cards([card_choice]))
-        hands[current_player].append(deck.pop())
+        replenish_hand(hands, current_player, info)
     elif move.isdigit() and int(move) in range(1, num_players+1) and int(move) != current_player+1:
         if clocks < 1:
             print("  no clocks left, can't inform this turn")
@@ -147,9 +168,9 @@ while gameover == False:
         decorated_cols = ['('+c[0] + ')' + c[1:] for c in cols]
         nums = set([card[1] for card in hands[hand_id]])
         while True:
-            if len(move2):
-                new_info = move2
-                move2 = ''
+            if len(submove):
+                new_info = submove
+                submove = ''
             else:
                 new_info = input("inform of {}, {}? ".format(', '.join(map(str, nums)), ', '.join(decorated_cols)))
             if (new_info.isdigit() and int(new_info) in nums) or new_info in [x[0] for x in cols]:
@@ -160,9 +181,13 @@ while gameover == False:
             print("  didn't understand input {}".format(new_info))
 
         for card in hands[hand_id]:
-            is_match = card[0] == new_info or (new_info.isdigit() and card[1] == int(new_info))
-            info[hand_id].setdefault(str(card),{'is':set(),'isnt':set()})
-            info[hand_id][str(card)]['is' if is_match else 'isnt'].add(new_info)
+            card_info = info[hand_id][str(card)]
+            if card[0] == new_info:
+                card_info['colour'] = new_info
+            elif new_info.isdigit() and card[1] == int(new_info):
+                card_info['number'] = new_info
+            else:
+                card_info['not'].add(new_info)
         clocks -= 1
         if new_info.isdigit():
             example_card = ("grey", new_info)
