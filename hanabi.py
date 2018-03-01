@@ -107,7 +107,7 @@ class HanabiGame():
     max_clocks = 8
 
     def __init__(self, num_players = 2, seed = None):
-        self.lives        = 0
+        self.lives        = 3
         self.clocks       = 8
         self.turn         = 0
         self.is_game_over = False
@@ -251,14 +251,32 @@ else:
     hanabi = HanabiGame(2, seed)
 
 
+previous_player = None
+input_error = None
 while hanabi.is_game_over == False:
     current_player = hanabi.current_player_id()
     # todo rationalise current_player to player_id = player_num - 1 and next_player_id
 
+    os.system('clear')
+
+    table_header = ''
+    table_header += "Player {} {}\n".format(previous_player+1, action_description) \
+                    if previous_player is not None else "\n"
+    table_header += render_table(hanabi)
+
+    print(table_header)
+
+    if input_error is None:
+        if remote_game and not remote_move:
+            next_move = move_and_wait("{}{}".format(move,submove), url, game_title, headers)
+        else:
+            next_move = input("Player {} press enter".format(current_player+1))
+
     if len(next_move) != 2:
+        # if a next_move hasn't been specified, give user info to make it
         remote_move = False
         os.system('clear')
-        print(render_table(hanabi))
+        print(table_header)
         print()
         for i, hand in enumerate(hanabi.hands):
             if i == current_player:
@@ -277,6 +295,9 @@ while hanabi.is_game_over == False:
             player_string_list = ["Player ("+str(p+1)+")" for p in range(hanabi.num_players) if p != current_player]
             inform_string = ", inform {}".format(', '.join(player_string_list)) if hanabi.clocks > 0 else ""
 
+        if input_error:
+            print(input_error)
+            input_error = None
         move = input("(p)lay, (d)iscard{}? ".format(inform_string))
     else:
         remote_move = True
@@ -300,7 +321,6 @@ while hanabi.is_game_over == False:
             if hand_index > -1:
                 break
             submove = ''
-            print("  didn't understand input {}".format(submove))
 
         if move == 'p':
             hanabi.play(hand_index)
@@ -312,8 +332,7 @@ while hanabi.is_game_over == False:
 
     elif move.isdigit() and int(move) in range(1, hanabi.num_players+1) and int(move) != current_player+1:
         if hanabi.clocks < 1:
-            print("  no clocks left, can't inform this turn")
-            #todo make this message show, currently gets instantly cleared
+            input_error = "no clocks left, can't inform this turn"
             continue
         hand_id = int(move) - 1
         cols = hanabi.list_possible_informs(hand_id, type='colour')
@@ -329,24 +348,16 @@ while hanabi.is_game_over == False:
                     new_info = [c for c in hanabi.game_colours if c[0] == submove][0]
                 break
             submove = ''
-            print("  didn't understand input {}".format(submove))
 
         hanabi.inform(hand_id, new_info)
         example_card = ("grey", new_info) if new_info.isdigit() else (new_info, " ")
         action_description = "told Player {} about {}s".format(hand_id+1, render_cards([example_card]))
     else:
-        print(" Invalid move {}".format(move))
+        input_error = 'invalid option "{}", choose from:'.format(move)
         continue
 
-    os.system('clear')
-    print("Player {} {}".format(current_player+1, action_description))
-    print(render_table(hanabi))
+    previous_player = current_player
 
-    if remote_game and not remote_move:
-        next_move = move_and_wait("{}{}".format(move,submove), url, game_title, headers)
-    else:
-        next_move = input("Player {} press enter".format((current_player+1)%hanabi.num_players+1))
-
-print("Game over - {}\n".format(hanabi.end_message))
-print(render_table(hanabi))
 print()
+print("Game over - {}".format(hanabi.end_message))
+print(render_table(hanabi))
