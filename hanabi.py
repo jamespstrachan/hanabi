@@ -2,19 +2,7 @@ import random, io, sys, os, string, json, datetime
 from sys import argv
 from time import sleep
 
-num_players = 2
-
-game_colours = ["red","yellow","green","blue","white"]
-table = [[(colour,0)] for colour in game_colours]
-lives  = 3
-clocks = 8
-max_clocks = 8
-discard_pile = []
-deck = []
-hands = []
-info = [{} for _ in range(num_players)]
-seed = argv[1] if len(argv)>1 else ''.join(random.choice(string.ascii_letters + string.digits) for _ in range(5))
-
+seed = argv[1] if len(argv)>1 else None
 
 op_colours = {
     "red":    '\033[41m',
@@ -25,79 +13,35 @@ op_colours = {
     "grey":   '\033[100m',
     "end":    '\033[0m',
 }
-def scarcity(number):
-    return 1 if number == 5 else 3 if number == 1 else 2
 
 def render_cards(list, style="{start} {value} {end}"):
     return ''.join(style.format(start=op_colours[l[0]], value=str(l[1]), end=op_colours['end']) for l in list)
 
-def render_table():
+def render_table(hanabi):
     op = []
-    op += ["{:=>32}=".format(seed)]
-    op += ["clocks:{}, lives:{} ".format(clocks,lives) + render_cards([pile[-1] for pile in table])]
-    op += ["{: >2} remain in deck".format(len(deck))]
-    if len(discard_pile):
-        op += ["discard pile : "[len(discard_pile)-33:] + render_cards(discard_pile, style="{start}{value}{end}")]
+    op += ["{:=>32}=".format(hanabi.seed)]
+    op += ["clocks:{}, lives:{} ".format(hanabi.clocks, hanabi.lives) + render_cards([pile[-1] for pile in hanabi.table])]
+    op += ["{: >2} remain in deck".format(len(hanabi.deck))]
+    if len(hanabi.discard_pile):
+        op += ["discard pile : "[len(hanabi.discard_pile)-33:] + render_cards(hanabi.discard_pile, style="{start}{value}{end}")]
     op += ["{:=>33}".format('')]
     return "\n".join(op)
 
-def render_info(id):
+def render_info(hanabi, id):
     info_not = []
-    for card in hands[id]:
-        if str(card) in info[id]:
-            info_not.append(''.join(x[0] for x in info[id][str(card)]['not']))
+    for card in hanabi.hands[id]:
+        if str(card) in hanabi.info[id]:
+            info_not.append(''.join(x[0] for x in hanabi.info[id][str(card)]['not']))
         else:
             info_not.append('')
 
-    obscured_hand = [(info[id][str(card)]['colour'], info[id][str(card)]['number']) for card in hands[id]]
+    obscured_hand = [(hanabi.info[id][str(card)]['colour'], hanabi.info[id][str(card)]['number']) for card in hanabi.hands[id]]
     return "        we know : {}".format(render_cards(obscured_hand)) + \
            "\n\033[90m     and is not : {: ^3}{: ^3}{: ^3}{: ^3}{: ^3}\033[0m".format(*info_not)
 
-def setup():
-    global deck
-    global hands
-    global info
-    global seed
-    deck = [(i,j,k) for i in game_colours
-                    for j in range(1, 6)
-                    for k in range(0, scarcity(j))]
-    random.seed(seed)
-    random.shuffle(deck)
-    hands = [[] for _ in range(num_players)]
-    info = [{} for _ in hands]
-    [replenish_hand(hands, idx, info) for _ in range(5) for idx,_ in enumerate(hands)]
 
 
-def play(card):
-    global lives
-    pile = table[game_colours.index(card[0])]
-    if ( len(pile) == 0 and card[1] == 1 )\
-    or ( pile[-1][1] == card[1] - 1 ):
-        pile.append(card)
-        if card[1] == 5:
-            add_clock()
-    else:
-        if lives == 0:
-            os.system('clear')
-            print(render_table())
-            print("\nYou ran out of lives - game over\n")
-            exit()
-        lives -=1
-        discard_pile.append(card)
 
-def discard(card):
-    global clocks
-    discard_pile.append(card_choice)
-    add_clock()
-
-def replenish_hand(hands, idx, info):
-    card = deck.pop()
-    hands[idx].append(card)
-    info[idx][str(card)] = {'not':set(),'colour':'end','number':' '}
-
-def add_clock():
-    global clocks
-    clocks += 1 if clocks < max_clocks else 0
 
 def check_credentials():
     """ Loads credentials if present or requests from user
@@ -158,9 +102,98 @@ def move_and_wait(move, url, game_title, headers):
         #todo add user check every few minutes
         sleep(3)
 
+class HanabiGame():
+    game_colours = ["red","yellow","green","blue","white"]
+    max_clocks = 8
+
+    def __init__(self, num_players = 2, seed = None):
+        self.lives        = 0
+        self.clocks       = 8
+        self.turn         = 0
+        self.is_game_over = False
+        self.last_card    = None
+        self.num_players  = num_players
+        self.seed         = seed if seed is not None else self.random_seed()
+        self.info         = [{} for _ in range(num_players)]
+        self.table        = [[(colour,0)] for colour in self.game_colours]
+        self.discard_pile = []
+        self.hands        = [[] for _ in range(self.num_players)]
+        self.info         = [{} for _ in self.hands]
+        self.deck         = [(i,j,k) for i in self.game_colours
+                                     for j in range(1, 6)
+                                     for k in range(0, self.scarcity(j))]
+        random.seed(self.seed)
+        random.shuffle(self.deck)
+        [self.replenish_hand(i) for _ in range(5) for i,_ in enumerate(self.hands)]
+
+    def scarcity(self, number):
+        return 1 if number == 5 else 3 if number == 1 else 2
+
+    def random_seed(self):
+        return ''.join(random.choice(string.ascii_letters + string.digits) for _ in range(5))
+
+    def current_player_id(self):
+        return self.turn % self.num_players
+
+    def current_hand(self):
+        return self.hands[self.current_player_id()]
+
+    def list_possible_informs(self, hand_id, type='colour'):
+        return set([card[0 if type=='colour' else 1] for card in self.hands[hand_id]])
+
+    def play(self, hand_index):
+        card = self.take_hand_card(hand_index)
+        pile = self.table[self.game_colours.index(card[0])]
+        if ( len(pile) == 0 and card[1] == 1 )\
+        or ( pile[-1][1] == card[1] - 1 ):
+            pile.append(card)
+            if card[1] == 5:
+                self.add_clock()
+        else:
+            if self.lives == 0:
+                self.end_message = "ran out of lives"
+                self.is_game_over = True
+                self.lives = '!'
+            else:
+                self.lives -=1
+            self.discard_pile.append(card)
+        self.turn += 1
+
+    def discard(self, hand_index):
+        card = self.take_hand_card(hand_index)
+        self.discard_pile.append(card)
+        self.add_clock()
+        self.turn += 1
+
+    def inform(self, hand_id, info):
+        for card in self.hands[hand_id]:
+            hand_info = self.info[hand_id][str(card)]
+            if card[0] == new_info:
+                hand_info['colour'] = new_info
+            elif new_info.isdigit() and card[1] == int(new_info):
+                hand_info['number'] = new_info
+            else:
+                hand_info['not'].add(new_info)
+        self.clocks -= 1
+        self.turn += 1
+
+    def take_hand_card(self, hand_index):
+        card = self.current_hand().pop(hand_index)
+        self.last_card = card
+        self.replenish_hand(self.current_player_id())
+        return card
+
+    def add_clock(self):
+        self.clocks += 1 if self.clocks < self.max_clocks else 0
+
+    def replenish_hand(self, player_id):
+        card = self.deck.pop()
+        self.hands[player_id].append(card)
+        self.info[player_id][str(card)] = {'not':set(),'colour':'end','number':' '}
+
 
 #todo pack this up in main()
-turn = 0
+
 next_move = ''
 
 remote_game = False
@@ -190,8 +223,9 @@ if input("Play (l)ocal or (r)emote game? ") == 'r':
     print('\n'.join(" - ({}) join {}".format(i, f['filename']) for i,f in enumerate(game_files)) or "\n( no current games exist )\n")
     chosen_game = input(" - (n) create new game? ")
     if chosen_game == 'n':
+        hanabi = HanabiGame(2, seed)
         game_title = "game by {} on {}".format(player_name, datetime.datetime.now().strftime('%c'))
-        content = json.dumps({"seed": seed, "players": [player_name]}, indent=4)
+        content = json.dumps({"seed": hanabi.seed, "players": [player_name]}, indent=4)
         file_json = {"files":{(newgame_prefix+game_title):{"content":content}}}
         response_json = requests.post(url, headers=headers, json=file_json).json()
         await_enough_players(url, game_title, headers)
@@ -199,6 +233,7 @@ if input("Play (l)ocal or (r)emote game? ") == 'r':
         game_file = game_files[int(chosen_game)]
         game_content = json.loads(game_file['content'])
         seed = game_content['seed']
+        hanabi = HanabiGame(2, seed)
         game_content['players'].append(player_name)
         game_content['moves'] = []
         game_title = game_file['filename'][len(newgame_prefix):]
@@ -212,20 +247,20 @@ if input("Play (l)ocal or (r)emote game? ") == 'r':
                     }
         response_json = requests.patch(url, headers=headers, json=file_json).json()
         next_move = move_and_wait('', url, game_title, headers)
+else:
+    hanabi = HanabiGame(2, seed)
 
-setup()
-gameover = False
 
-while gameover == False:
-    current_player = turn%num_players
+while hanabi.is_game_over == False:
+    current_player = hanabi.current_player_id()
     # todo rationalise current_player to player_id = player_num - 1 and next_player_id
 
     if len(next_move) != 2:
         remote_move = False
         os.system('clear')
-        print(render_table())
+        print(render_table(hanabi))
         print()
-        for i, hand in enumerate(hands):
+        for i, hand in enumerate(hanabi.hands):
             if i == current_player:
                 player_name = "your hand"
                 top_line = render_cards([("grey", x) for x in "abcde"])
@@ -234,13 +269,13 @@ while gameover == False:
                 top_line = render_cards(hand)
             print("{: >15} : ".format(player_name), end='')
             print(top_line)
-            print(render_info(i))
+            print(render_info(hanabi, i))
             print()
-        if num_players == 2:
+        if hanabi.num_players == 2:
             inform_string = ", (i)nform"
         else:
-            player_string_list = ["Player ("+str(p+1)+")" for p in range(num_players) if p != current_player]
-            inform_string = ", inform {}".format(', '.join(player_string_list)) if clocks > 0 else ""
+            player_string_list = ["Player ("+str(p+1)+")" for p in range(hanabi.num_players) if p != current_player]
+            inform_string = ", inform {}".format(', '.join(player_string_list)) if hanabi.clocks > 0 else ""
 
         move = input("(p)lay, (d)iscard{}? ".format(inform_string))
     else:
@@ -254,7 +289,7 @@ while gameover == False:
         move = move[0]
 
     # make "i" move default to other player in 2 player game
-    if move == 'i' and num_players == 2:
+    if move == 'i' and hanabi.num_players == 2:
         move = str(2-current_player)
 
     if move in ['p','d']:
@@ -266,24 +301,24 @@ while gameover == False:
                 break
             submove = ''
             print("  didn't understand input {}".format(submove))
-        card_choice = hands[current_player].pop(hand_index)
 
         if move == 'p':
-            play(card_choice)
+            hanabi.play(hand_index)
             action_description = "played"
         else:
-            discard(card_choice)
+            hanabi.discard(hand_index)
             action_description = "discarded"
-        action_description += " card: {}".format(render_cards([card_choice]))
-        replenish_hand(hands, current_player, info)
-    elif move.isdigit() and int(move) in range(1, num_players+1) and int(move) != current_player+1:
-        if clocks < 1:
+        action_description += " card: {}".format(render_cards([hanabi.last_card]))
+
+    elif move.isdigit() and int(move) in range(1, hanabi.num_players+1) and int(move) != current_player+1:
+        if hanabi.clocks < 1:
             print("  no clocks left, can't inform this turn")
+            #todo make this message show, currently gets instantly cleared
             continue
         hand_id = int(move) - 1
-        cols = set([card[0] for card in hands[hand_id]])
+        cols = hanabi.list_possible_informs(hand_id, type='colour')
         decorated_cols = ['('+c[0] + ')' + c[1:] for c in cols]
-        nums = set([card[1] for card in hands[hand_id]])
+        nums = hanabi.list_possible_informs(hand_id, type='number')
         while True:
             if len(submove) < 1:
                 submove = input("inform of {}, {}? ".format(', '.join(map(str, nums)), ', '.join(decorated_cols)))
@@ -291,21 +326,12 @@ while gameover == False:
                 new_info = submove
                 if not new_info.isdigit():
                     # turn "g" into "green", for example
-                    new_info = [c for c in game_colours if c[0] == submove][0]
+                    new_info = [c for c in hanabi.game_colours if c[0] == submove][0]
                 break
             submove = ''
             print("  didn't understand input {}".format(submove))
 
-        for card in hands[hand_id]:
-            card_info = info[hand_id][str(card)]
-            if card[0] == new_info:
-                card_info['colour'] = new_info
-            elif new_info.isdigit() and card[1] == int(new_info):
-                card_info['number'] = new_info
-            else:
-                card_info['not'].add(new_info)
-        clocks -= 1
-
+        hanabi.inform(hand_id, new_info)
         example_card = ("grey", new_info) if new_info.isdigit() else (new_info, " ")
         action_description = "told Player {} about {}s".format(hand_id+1, render_cards([example_card]))
     else:
@@ -313,12 +339,14 @@ while gameover == False:
         continue
 
     os.system('clear')
-    print("Player {} {}".format(current_player+1,action_description))
-    print(render_table())
+    print("Player {} {}".format(current_player+1, action_description))
+    print(render_table(hanabi))
 
     if remote_game and not remote_move:
         next_move = move_and_wait("{}{}".format(move,submove), url, game_title, headers)
     else:
-        next_move = input("Player {} press enter".format((current_player+1)%num_players+1))
+        next_move = input("Player {} press enter".format((current_player+1)%hanabi.num_players+1))
 
-    turn += 1
+print("Game over - {}\n".format(hanabi.end_message))
+print(render_table(hanabi))
+print()
