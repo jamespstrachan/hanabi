@@ -268,7 +268,7 @@ while hanabi.is_game_over == False:
     print(table_header)
 
     if input_error is None:
-        if remote_game and not remote_move:
+        if remote_game and remote_move:
             next_move = move_and_wait("{}{}".format(move,submove), url, game_title, headers)
         else:
             next_move = input("Player {} press enter".format(current_player+1))
