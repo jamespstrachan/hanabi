@@ -252,7 +252,8 @@ else:
 
 
 previous_player = None
-input_error = None
+input_error     = None
+remote_move     = None
 while hanabi.is_game_over == False:
     current_player = hanabi.current_player_id()
     # todo rationalise current_player to player_id = player_num - 1 and next_player_id
@@ -300,14 +301,9 @@ while hanabi.is_game_over == False:
             input_error = None
         move = input("(p)lay, (d)iscard{}? ".format(inform_string))
     else:
-        remote_move = True
-        move, next_move = next_move, ''
-
-    # todo tidy this into above
-    submove = ''
-    if len(move) == 2:
-        submove = move[1]
-        move = move[0]
+        remote_move   = True
+        move, submove = next_move
+        next_move     = ''
 
     # make "i" move default to other player in 2 player game
     if move == 'i' and hanabi.num_players == 2:
