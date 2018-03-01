@@ -1,5 +1,6 @@
-import random, io, sys, os, string
+import random, io, sys, os, string, json, datetime
 from sys import argv
+from time import sleep
 
 num_players = 2
 
@@ -13,7 +14,7 @@ deck = []
 hands = []
 info = [{} for _ in range(num_players)]
 seed = argv[1] if len(argv)>1 else ''.join(random.choice(string.ascii_letters + string.digits) for _ in range(5))
-random.seed(seed)
+
 
 op_colours = {
     "red":    '\033[41m',
@@ -56,9 +57,11 @@ def setup():
     global deck
     global hands
     global info
+    global seed
     deck = [(i,j,k) for i in game_colours
                     for j in range(1, 6)
                     for k in range(0, scarcity(j))]
+    random.seed(seed)
     random.shuffle(deck)
     hands = [[] for _ in range(num_players)]
     info = [{} for _ in hands]
@@ -96,15 +99,129 @@ def add_clock():
     global clocks
     clocks += 1 if clocks < max_clocks else 0
 
-setup()
+def check_credentials():
+    """ Loads credentials if present or requests from user
+    """
+    credentials_path = "credentials.py"
+    if os.path.isfile(credentials_path) == False:
+        print("Setup required, no credentials found")
+        token   = input("  server token : ")
+        tag     = input("    server tag : ")
+        fh = open(credentials_path, "w")
+        lines = [
+            "# application credentials",
+            "token = '{}'".format(token),
+            "tag = '{}'".format(tag),
+            "",
+            ]
+        fh.write("\n".join(lines))
+        fh.close()
+        print("Setup complete\n")
 
-gameover = False
+def await_enough_players(url, game_title, headers):
+    print("waiting for players", end='', flush=True)
+    #todo add delayed start to skip a few seconds before polling begins
+    while True:
+        response_json = requests.get(url, headers=headers).json()
+        print(".", end='', flush=True)
+        if game_title in response_json['files']:
+            game_content = json.loads(response_json['files'][game_title]['content'])
+            if len(game_content['players']) == 2:
+                print(" player {} joined".format(game_content['players'][-1]), flush=True)
+                return
+        #todo add user check every few minutes
+        sleep(3)
+
+def move_and_wait(move, url, game_title, headers):
+    move_count = 0
+    if len(move):
+        print("updating game server...".format(move), end='', flush=True)
+        response_json = requests.get(url, headers=headers).json()
+        game_content = json.loads(response_json['files'][game_title]['content'])
+        game_content['moves'].append(move)
+        move_count = len(game_content['moves'])
+        file_json = {"files":{game_title:{"content":json.dumps(game_content, indent=4)}}}
+        response_json = requests.patch(url, headers=headers, json=file_json).json()
+        print("updated")
+    print("waiting for move", end='', flush=True)
+    #todo add delayed start to skip a few seconds before polling begins
+    while True:
+        response_json = requests.get(url, headers=headers).json()
+        print(".", end='', flush=True)
+        if game_title in response_json['files']:
+            game_content = json.loads(response_json['files'][game_title]['content'])
+            if len(game_content['moves']) > move_count:
+                move = game_content['moves'][move_count]
+                #todo make this take an array of moves for >2 player
+                print(" found new move {}".format(move))
+                return move
+        #todo add user check every few minutes
+        sleep(3)
+
+
+#todo pack this up in main()
 turn = 0
 next_move = ''
+
+remote_game = False
+if input("Play (l)ocal or (r)emote game? ") == 'r':
+    remote_game = True
+    server_url = 'https://api.github.com/gists'
+    os.chdir(os.path.dirname(os.path.abspath(__file__)))
+    check_credentials()
+    import credentials
+    import requests
+    url = "{}/{}".format(server_url, credentials.tag)
+    headers = {"Authorization": "token {}".format(credentials.token)}
+    response_json = requests.get(url, headers=headers).json()
+
+    server_header = [detail['content'] for filename, detail in response_json['files'].items() if filename == 'hanabi']
+    if len(server_header) != 1:
+        print("no server found!")
+        # todo graceful fail/retry
+        exit()
+    print("Server found, welcome message:\n  {}".format(server_header[0]))
+
+    player_name = input("What's your name? ")
+
+    newgame_prefix = "New "
+    game_files = [file for filename,file in response_json['files'].items() if filename.find(newgame_prefix) == 0]
+    print("Choose game to join:")
+    print('\n'.join(" - ({}) join {}".format(i, f['filename']) for i,f in enumerate(game_files)) or "\n( no current games exist )\n")
+    chosen_game = input(" - (n) create new game? ")
+    if chosen_game == 'n':
+        game_title = "game by {} on {}".format(player_name, datetime.datetime.now().strftime('%c'))
+        content = json.dumps({"seed": seed, "players": [player_name]}, indent=4)
+        file_json = {"files":{(newgame_prefix+game_title):{"content":content}}}
+        response_json = requests.post(url, headers=headers, json=file_json).json()
+        await_enough_players(url, game_title, headers)
+    else:
+        game_file = game_files[int(chosen_game)]
+        game_content = json.loads(game_file['content'])
+        seed = game_content['seed']
+        game_content['players'].append(player_name)
+        game_content['moves'] = []
+        game_title = game_file['filename'][len(newgame_prefix):]
+        file_json = {
+                    "files":{
+                        game_file['filename']:{
+                            "filename": game_title, # Update title to remove newgame_prefix
+                            "content": json.dumps(game_content, indent=4),
+                            }
+                        }
+                    }
+        response_json = requests.patch(url, headers=headers, json=file_json).json()
+        next_move = move_and_wait('', url, game_title, headers)
+
+setup()
+gameover = False
+
 while gameover == False:
     current_player = turn%num_players
+    # todo rationalise current_player to player_id = player_num - 1 and next_player_id
 
     if len(next_move) != 2:
+        remote_move = False
         os.system('clear')
         print(render_table())
         print()
@@ -127,30 +244,30 @@ while gameover == False:
 
         move = input("(p)lay, (d)iscard{}? ".format(inform_string))
     else:
+        remote_move = True
         move, next_move = next_move, ''
 
+    # todo tidy this into above
     submove = ''
     if len(move) == 2:
         submove = move[1]
         move = move[0]
 
-    #make "inform" default to other player in 2 player game
+    # make "i" move default to other player in 2 player game
     if move == 'i' and num_players == 2:
         move = str(2-current_player)
 
     if move in ['p','d']:
         while True:
-            if len(submove):
-                hand_position = submove
-                submove = ''
-            else:
-                hand_position = input("which card to use, a-e? ")
-            hand_index = "abcde".find(hand_position)
+            if len(submove) < 1:
+                submove = input("which card to use, a-e? ")
+            hand_index = "abcde".find(submove)
             if hand_index > -1:
                 break
-            print("  didn't understand input {}".format(hand_position))
-
+            submove = ''
+            print("  didn't understand input {}".format(submove))
         card_choice = hands[current_player].pop(hand_index)
+
         if move == 'p':
             play(card_choice)
             action_description = "played"
@@ -168,17 +285,16 @@ while gameover == False:
         decorated_cols = ['('+c[0] + ')' + c[1:] for c in cols]
         nums = set([card[1] for card in hands[hand_id]])
         while True:
-            if len(submove):
+            if len(submove) < 1:
+                submove = input("inform of {}, {}? ".format(', '.join(map(str, nums)), ', '.join(decorated_cols)))
+            if (submove.isdigit() and int(submove) in nums) or submove in [x[0] for x in cols]:
                 new_info = submove
-                submove = ''
-            else:
-                new_info = input("inform of {}, {}? ".format(', '.join(map(str, nums)), ', '.join(decorated_cols)))
-            if (new_info.isdigit() and int(new_info) in nums) or new_info in [x[0] for x in cols]:
                 if not new_info.isdigit():
                     # turn "g" into "green", for example
-                    new_info = [c for c in game_colours if c[0] == new_info][0]
+                    new_info = [c for c in game_colours if c[0] == submove][0]
                 break
-            print("  didn't understand input {}".format(new_info))
+            submove = ''
+            print("  didn't understand input {}".format(submove))
 
         for card in hands[hand_id]:
             card_info = info[hand_id][str(card)]
@@ -189,10 +305,8 @@ while gameover == False:
             else:
                 card_info['not'].add(new_info)
         clocks -= 1
-        if new_info.isdigit():
-            example_card = ("grey", new_info)
-        else:
-            example_card = (new_info, " ")
+
+        example_card = ("grey", new_info) if new_info.isdigit() else (new_info, " ")
         action_description = "told Player {} about {}s".format(hand_id+1, render_cards([example_card]))
     else:
         print(" Invalid move {}".format(move))
@@ -201,6 +315,10 @@ while gameover == False:
     os.system('clear')
     print("Player {} {}".format(current_player+1,action_description))
     print(render_table())
-    next_move = input("Player {} press enter...".format((current_player+1)%num_players+1))
+
+    if remote_game and not remote_move:
+        next_move = move_and_wait("{}{}".format(move,submove), url, game_title, headers)
+    else:
+        next_move = input("Player {} press enter".format((current_player+1)%num_players+1))
 
     turn += 1
