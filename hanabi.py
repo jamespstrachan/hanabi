@@ -267,11 +267,8 @@ while hanabi.is_game_over == False:
 
     print(table_header)
 
-    if input_error is None:
-        if remote_game and remote_move:
-            next_move = move_and_wait("{}{}".format(move,submove), url, game_title, headers)
-        else:
-            next_move = input("Player {} press enter".format(current_player+1))
+    if not next_move:
+        next_move = input("Player {} press enter".format(current_player+1))
 
     if len(next_move) != 2:
         # if a next_move hasn't been specified, give user info to make it
@@ -301,9 +298,14 @@ while hanabi.is_game_over == False:
             input_error = None
         move = input("(p)lay, (d)iscard{}? ".format(inform_string))
     else:
-        remote_move   = True
-        move, submove = next_move
-        next_move     = ''
+        remote_move = True
+        move, next_move = next_move, ''
+
+    # todo tidy this into above
+    submove = ''
+    if len(move) == 2:
+        submove = move[1]
+        move = move[0]
 
     # make "i" move default to other player in 2 player game
     if move == 'i' and hanabi.num_players == 2:
@@ -351,6 +353,11 @@ while hanabi.is_game_over == False:
     else:
         input_error = 'invalid option "{}", choose from:'.format(move)
         continue
+
+
+    if input_error is None:
+        if remote_game and not remote_move:
+            next_move = move_and_wait("{}{}".format(move,submove), url, game_title, headers)
 
     previous_player = current_player
 
