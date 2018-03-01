@@ -1,20 +1,18 @@
 import random, io, sys, os, string, json, datetime
 from sys import argv
 from time import sleep
-
-seed = argv[1] if len(argv)>1 else None
-
-op_colours = {
-    "red":    '\033[41m',
-    "yellow": '\033[43m',
-    "green":  '\033[42m',
-    "blue":   '\033[46m',
-    "white":  '\033[7m',
-    "grey":   '\033[100m',
-    "end":    '\033[0m',
-}
+import requests
 
 def render_cards(list, style="{start} {value} {end}"):
+    op_colours = {
+        "red":    '\033[41m',
+        "yellow": '\033[43m',
+        "green":  '\033[42m',
+        "blue":   '\033[46m',
+        "white":  '\033[7m',
+        "grey":   '\033[100m',
+        "end":    '\033[0m',
+    }
     return ''.join(style.format(start=op_colours[l[0]], value=str(l[1]), end=op_colours['end']) for l in list)
 
 def render_table(hanabi):
@@ -37,21 +35,19 @@ def render_info(hanabi, id):
 
     obscured_hand = [(hanabi.info[id][str(card)]['colour'], hanabi.info[id][str(card)]['number']) for card in hanabi.hands[id]]
     return "        we know : {}".format(render_cards(obscured_hand)) + \
-           "\n\033[90m     and is not : {: ^3}{: ^3}{: ^3}{: ^3}{: ^3}\033[0m".format(*info_not)
-
-
-
-
+           "\n     and is not : {: ^3}{: ^3}{: ^3}{: ^3}{: ^3}".format(*info_not)
 
 def check_credentials():
     """ Loads credentials if present or requests from user
     """
-    credentials_path = "credentials.py"
-    if os.path.isfile(credentials_path) == False:
+    dir_path = os.path.dirname(os.path.abspath(__file__))
+    file_path = "credentials.py"
+    full_path = dir_path + os.path.sep + file_path
+    if os.path.isfile(full_path) == False:
         print("Setup required, no credentials found")
         token   = input("  server token : ")
         tag     = input("    server tag : ")
-        fh = open(credentials_path, "w")
+        fh = open(full_path, "w")
         lines = [
             "# application credentials",
             "token = '{}'".format(token),
@@ -62,52 +58,13 @@ def check_credentials():
         fh.close()
         print("Setup complete\n")
 
-def await_enough_players(url, game_title, headers):
-    print("waiting for players", end='', flush=True)
-    #todo add delayed start to skip a few seconds before polling begins
-    while True:
-        response_json = requests.get(url, headers=headers).json()
-        print(".", end='', flush=True)
-        if game_title in response_json['files']:
-            game_content = json.loads(response_json['files'][game_title]['content'])
-            if len(game_content['players']) == 2:
-                print(" player {} joined".format(game_content['players'][-1]), flush=True)
-                return
-        #todo add user check every few minutes
-        sleep(3)
-
-def move_and_wait(move, url, game_title, headers):
-    move_count = 0
-    if len(move):
-        print("updating game server...".format(move), end='', flush=True)
-        response_json = requests.get(url, headers=headers).json()
-        game_content = json.loads(response_json['files'][game_title]['content'])
-        game_content['moves'].append(move)
-        move_count = len(game_content['moves'])
-        file_json = {"files":{game_title:{"content":json.dumps(game_content, indent=4)}}}
-        response_json = requests.patch(url, headers=headers, json=file_json).json()
-        print("updated")
-    print("waiting for move", end='', flush=True)
-    #todo add delayed start to skip a few seconds before polling begins
-    while True:
-        response_json = requests.get(url, headers=headers).json()
-        print(".", end='', flush=True)
-        if game_title in response_json['files']:
-            game_content = json.loads(response_json['files'][game_title]['content'])
-            if len(game_content['moves']) > move_count:
-                move = game_content['moves'][move_count]
-                #todo make this take an array of moves for >2 player
-                print(" found new move {}".format(move))
-                return move
-        #todo add user check every few minutes
-        sleep(3)
 
 class HanabiGame():
     game_colours = ["red","yellow","green","blue","white"]
     max_clocks = 8
 
     def __init__(self, num_players = 2, seed = None):
-        self.lives        = 3
+        self.lives        = 2
         self.clocks       = 8
         self.turn         = 0
         self.is_game_over = False
@@ -168,12 +125,12 @@ class HanabiGame():
     def inform(self, hand_id, info):
         for card in self.hands[hand_id]:
             hand_info = self.info[hand_id][str(card)]
-            if card[0] == new_info:
-                hand_info['colour'] = new_info
-            elif new_info.isdigit() and card[1] == int(new_info):
-                hand_info['number'] = new_info
+            if card[0] == info:
+                hand_info['colour'] = info
+            elif info.isdigit() and card[1] == int(info):
+                hand_info['number'] = info
             else:
-                hand_info['not'].add(new_info)
+                hand_info['not'].add(info)
         self.clocks -= 1
         self.turn += 1
 
@@ -191,176 +148,240 @@ class HanabiGame():
         self.hands[player_id].append(card)
         self.info[player_id][str(card)] = {'not':set(),'colour':'end','number':' '}
 
-
-#todo pack this up in main()
-
-next_move = ''
-
-remote_game = False
-if input("Play (l)ocal or (r)emote game? ") == 'r':
-    remote_game = True
-    server_url = 'https://api.github.com/gists'
-    os.chdir(os.path.dirname(os.path.abspath(__file__)))
-    check_credentials()
-    import credentials
-    import requests
-    url = "{}/{}".format(server_url, credentials.tag)
-    headers = {"Authorization": "token {}".format(credentials.token)}
-    response_json = requests.get(url, headers=headers).json()
-
-    server_header = [detail['content'] for filename, detail in response_json['files'].items() if filename == 'hanabi']
-    if len(server_header) != 1:
-        print("no server found!")
-        # todo graceful fail/retry
-        exit()
-    print("Server found, welcome message:\n  {}".format(server_header[0]))
-
-    player_name = input("What's your name? ")
-
+class HanabiServer():
     newgame_prefix = "New "
-    game_files = [file for filename,file in response_json['files'].items() if filename.find(newgame_prefix) == 0]
-    print("Choose game to join:")
-    print('\n'.join(" - ({}) join {}".format(i, f['filename']) for i,f in enumerate(game_files)) or "\n( no current games exist )\n")
-    chosen_game = input(" - (n) create new game? ")
-    if chosen_game == 'n':
-        hanabi = HanabiGame(2, seed)
-        game_title = "game by {} on {}".format(player_name, datetime.datetime.now().strftime('%c'))
-        content = json.dumps({"seed": hanabi.seed, "players": [player_name]}, indent=4)
-        file_json = {"files":{(newgame_prefix+game_title):{"content":content}}}
-        response_json = requests.post(url, headers=headers, json=file_json).json()
-        await_enough_players(url, game_title, headers)
-    else:
-        game_file = game_files[int(chosen_game)]
+
+    def __init__(self, url, credentials ):
+        self.url = "{}/{}".format(url, credentials.tag)
+        self.credentials = credentials
+        self.headers = {"Authorization": "token {}".format(credentials.token)}
+
+    def list_games(self):
+        response_json   = self.request()
+        self.new_game_files = [file for filename,file in response_json['files'].items() if filename.find(self.newgame_prefix) == 0]
+        return [f['filename'] for f in self.new_game_files]
+
+    def new_game(self, hanabi, creator_name):
+        self.hanabi     = hanabi
+        self.game_title = "game by {} on {}".format(creator_name, datetime.datetime.now().strftime('%c'))
+        content         = json.dumps({"seed": hanabi.seed, "players": [creator_name], "moves":[]}, indent=4)
+        file_json       = {"files":{(self.newgame_prefix+self.game_title):{"content":content}}}
+        response_json   = self.request("POST", file_json)
+
+    def join_game(self, game_idx, player_name):
+        game_file = self.new_game_files[game_idx]
         game_content = json.loads(game_file['content'])
         seed = game_content['seed']
-        hanabi = HanabiGame(2, seed)
+        hanabi = HanabiGame(2, seed) # todo update for > 2 players
+
         game_content['players'].append(player_name)
-        game_content['moves'] = []
-        game_title = game_file['filename'][len(newgame_prefix):]
+        self.game_title = game_file['filename'][len(self.newgame_prefix):]
         file_json = {
                     "files":{
                         game_file['filename']:{
-                            "filename": game_title, # Update title to remove newgame_prefix
+                            "filename": self.game_title, # Update title to remove newgame_prefix
                             "content": json.dumps(game_content, indent=4),
                             }
                         }
                     }
-        response_json = requests.patch(url, headers=headers, json=file_json).json()
-        next_move = move_and_wait('', url, game_title, headers)
-else:
-    hanabi = HanabiGame(2, seed)
+        response_json = self.request("PATCH", file_json)
+        return hanabi
 
+    def request(self, verb = 'GET', json = None):
+        return requests.request(verb, self.url, headers=self.headers, json=json).json()
 
-previous_player = None
-input_error     = None
-remote_move     = None
-while hanabi.is_game_over == False:
-    current_player = hanabi.current_player_id()
-    # todo rationalise current_player to player_id = player_num - 1 and next_player_id
+    def parse_content(self, content_json):
+        return json.loads(content_json['files'][self.game_title]['content'])
 
-    os.system('clear')
+    def await_players(self):
+        print("waiting for players", end='', flush=True)
+        #todo add delayed start to skip a few seconds before polling begins
+        while True:
+            response_json = self.request()
+            print(".", end='', flush=True)
+            if self.game_title in response_json['files']:
+                game_content = self.parse_content(response_json)
+                if len(game_content['players']) == self.hanabi.num_players:
+                    print(" player {} joined".format(game_content['players'][-1]), flush=True)
+                    return
+            #todo add user check every few minutes
+            sleep(3)
 
-    table_header = ''
-    table_header += "Player {} {}\n".format(previous_player+1, action_description) \
-                    if previous_player is not None else "\n"
-    table_header += render_table(hanabi)
+    def set_game_state(self, game_content):
+        file_json = {"files":{self.game_title:{"content":json.dumps(game_content, indent=4)}}}
+        response_json = self.request("PATCH", file_json)
+        return self.parse_content(response_json)
 
-    print(table_header)
+    def get_game_state(self):
+        response_json = self.request("GET")
+        return self.parse_content(response_json)
 
-    if not next_move:
-        next_move = input("Player {} press enter".format(current_player+1))
+    def move_and_wait(self, move=None):
+        move_count = 0
+        if move:
+            print("updating game server...", end='', flush=True)
+            game_content = self.get_game_state()
+            game_content['moves'].append(move)
+            move_count = len(game_content['moves'])
+            self.set_game_state(game_content)
+            print("updated")
 
-    if len(next_move) != 2:
-        # if a next_move hasn't been specified, give user info to make it
-        remote_move = False
+        print("waiting for move", end='', flush=True)
+        #todo add delayed start to skip a few seconds before polling begins
+        while True:
+            print(".", end='', flush=True)
+            game_content = self.get_game_state()
+            if len(game_content['moves']) > move_count:
+                move = game_content['moves'][move_count]
+                #todo make this take an array of moves for >2 player
+                print(" found new move {}".format(move))
+                return move
+            #todo add user check every few minutes
+            sleep(3)
+
+def start_remote_game(seed):
+    player_name = input("What's your name? ")
+
+    check_credentials()
+    import credentials
+
+    server = HanabiServer('https://api.github.com/gists', credentials)
+
+    game_list = server.list_games()
+    print("Choose game to join:")
+    print('\n'.join(" - ({}) join {}".format(i, f) for i,f in enumerate(game_list)) or "\n( no current games exist )\n")
+    chosen_game = input(" - (n) create new game? ")
+
+    if chosen_game == 'n':
+        hanabi = HanabiGame(2, seed)
+        server.new_game(hanabi, player_name)
+        server.await_players()
+        next_move = ''
+    else:
+        hanabi = server.join_game(int(chosen_game), player_name)
+        next_move = server.move_and_wait()
+
+    return hanabi, server, next_move
+
+def main():
+    seed = argv[1] if len(argv)>1 else None
+    next_move = ''
+    remote_game = False
+    if input("Play (l)ocal or (r)emote game? ") == 'r':
+        remote_game = True
+        hanabi, server, next_move = start_remote_game(seed)
+    else:
+        hanabi = HanabiGame(2, seed)
+
+    previous_player = None
+    input_error     = None
+    remote_move     = None
+    while hanabi.is_game_over == False:
+        current_player = hanabi.current_player_id()
+        # todo rationalise current_player to player_id = player_num - 1 and next_player_id
+
         os.system('clear')
+        table_header = ''
+        table_header += "Player {} {}\n".format(previous_player+1, action_description) \
+                        if previous_player is not None else "\n"
+        table_header += render_table(hanabi)
         print(table_header)
-        print()
-        for i, hand in enumerate(hanabi.hands):
-            if i == current_player:
-                player_name = "your hand"
-                top_line = render_cards([("grey", x) for x in "abcde"])
-            else:
-                player_name = "player {}'s hand".format(1+i)
-                top_line = render_cards(hand)
-            print("{: >15} : ".format(player_name), end='')
-            print(top_line)
-            print(render_info(hanabi, i))
+
+        if not next_move and input_error is None:
+            if remote_game and not remote_move and previous_player is not None:
+                # Transmit last local move to server if playing remote game
+                next_move = server.move_and_wait("{}{}".format(move,submove))
+            elif not remote_game:
+                next_move = input("Player {} press enter".format(current_player+1))
+
+        if len(next_move) != 2:
+            # if a next_move hasn't been specified, give user info to make it
+            remote_move = False
+            os.system('clear')
+            print(table_header)
             print()
-        if hanabi.num_players == 2:
-            inform_string = ", (i)nform"
+            for i, hand in enumerate(hanabi.hands):
+                if i == current_player:
+                    player_name = "your hand"
+                    top_line = render_cards([("grey", x) for x in "abcde"])
+                else:
+                    player_name = "player {}'s hand".format(1+i)
+                    top_line = render_cards(hand)
+                print("{: >15} : ".format(player_name), end='')
+                print(top_line)
+                print(render_info(hanabi, i))
+                print()
+            if hanabi.num_players == 2:
+                inform_string = ", (i)nform"
+            else:
+                player_string_list = ["Player ("+str(p+1)+")" for p in range(hanabi.num_players) if p != current_player]
+                inform_string = ", inform {}".format(', '.join(player_string_list)) if hanabi.clocks > 0 else ""
+
+            if input_error:
+                print(input_error)
+                input_error = None
+            move = input("(p)lay, (d)iscard{}? ".format(inform_string))
         else:
-            player_string_list = ["Player ("+str(p+1)+")" for p in range(hanabi.num_players) if p != current_player]
-            inform_string = ", inform {}".format(', '.join(player_string_list)) if hanabi.clocks > 0 else ""
+            remote_move = True
+            move, next_move = next_move, ''
 
-        if input_error:
-            print(input_error)
-            input_error = None
-        move = input("(p)lay, (d)iscard{}? ".format(inform_string))
-    else:
-        remote_move = True
-        move, next_move = next_move, ''
+        submove = ''
+        if len(move) == 2:
+            submove = move[1]
+            move = move[0]
 
-    # todo tidy this into above
-    submove = ''
-    if len(move) == 2:
-        submove = move[1]
-        move = move[0]
+        # make "i" move default to other player in 2 player game
+        if move == 'i' and hanabi.num_players == 2:
+            move = str(2-current_player)
 
-    # make "i" move default to other player in 2 player game
-    if move == 'i' and hanabi.num_players == 2:
-        move = str(2-current_player)
+        if move in ['p','d']:
+            while True:
+                if len(submove) < 1:
+                    submove = input("which card to use, a-e? ")
+                hand_index = "abcde".find(submove)
+                if hand_index > -1:
+                    break
+                submove = ''
 
-    if move in ['p','d']:
-        while True:
-            if len(submove) < 1:
-                submove = input("which card to use, a-e? ")
-            hand_index = "abcde".find(submove)
-            if hand_index > -1:
-                break
-            submove = ''
+            if move == 'p':
+                hanabi.play(hand_index)
+                action_description = "played"
+            else:
+                hanabi.discard(hand_index)
+                action_description = "discarded"
+            action_description += " card: {}".format(render_cards([hanabi.last_card]))
 
-        if move == 'p':
-            hanabi.play(hand_index)
-            action_description = "played"
+        elif move.isdigit() and int(move) in range(1, hanabi.num_players+1) and int(move) != current_player+1:
+            if hanabi.clocks < 1:
+                input_error = "no clocks left, can't inform this turn"
+                continue
+            hand_id = int(move) - 1
+            cols = hanabi.list_possible_informs(hand_id, type='colour')
+            decorated_cols = ['('+c[0] + ')' + c[1:] for c in cols]
+            nums = hanabi.list_possible_informs(hand_id, type='number')
+            while True:
+                if len(submove) < 1:
+                    submove = input("inform of {}, {}? ".format(', '.join(map(str, nums)), ', '.join(decorated_cols)))
+                if (submove.isdigit() and int(submove) in nums) or submove in [x[0] for x in cols]:
+                    new_info = submove
+                    if not new_info.isdigit():
+                        # turn "g" into "green", for example
+                        new_info = [c for c in hanabi.game_colours if c[0] == submove][0]
+                    break
+                submove = ''
+
+            hanabi.inform(hand_id, new_info)
+            example_card = ("grey", new_info) if new_info.isdigit() else (new_info, " ")
+            action_description = "told Player {} about {}s".format(hand_id+1, render_cards([example_card]))
         else:
-            hanabi.discard(hand_index)
-            action_description = "discarded"
-        action_description += " card: {}".format(render_cards([hanabi.last_card]))
-
-    elif move.isdigit() and int(move) in range(1, hanabi.num_players+1) and int(move) != current_player+1:
-        if hanabi.clocks < 1:
-            input_error = "no clocks left, can't inform this turn"
+            input_error = 'invalid option "{}", choose from:'.format(move)
             continue
-        hand_id = int(move) - 1
-        cols = hanabi.list_possible_informs(hand_id, type='colour')
-        decorated_cols = ['('+c[0] + ')' + c[1:] for c in cols]
-        nums = hanabi.list_possible_informs(hand_id, type='number')
-        while True:
-            if len(submove) < 1:
-                submove = input("inform of {}, {}? ".format(', '.join(map(str, nums)), ', '.join(decorated_cols)))
-            if (submove.isdigit() and int(submove) in nums) or submove in [x[0] for x in cols]:
-                new_info = submove
-                if not new_info.isdigit():
-                    # turn "g" into "green", for example
-                    new_info = [c for c in hanabi.game_colours if c[0] == submove][0]
-                break
-            submove = ''
 
-        hanabi.inform(hand_id, new_info)
-        example_card = ("grey", new_info) if new_info.isdigit() else (new_info, " ")
-        action_description = "told Player {} about {}s".format(hand_id+1, render_cards([example_card]))
-    else:
-        input_error = 'invalid option "{}", choose from:'.format(move)
-        continue
+        previous_player = current_player
 
+    print()
+    print("Game over - {}".format(hanabi.end_message))
+    print(render_table(hanabi))
 
-    if input_error is None:
-        if remote_game and not remote_move:
-            next_move = move_and_wait("{}{}".format(move,submove), url, game_title, headers)
-
-    previous_player = current_player
-
-print()
-print("Game over - {}".format(hanabi.end_message))
-print(render_table(hanabi))
+if __name__ == "__main__":
+    main()
