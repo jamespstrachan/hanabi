@@ -6,9 +6,13 @@ import requests
 def main():
     seed = argv[1] if len(argv)>1 else None
 
-    if input("Play (l)ocal or (r)emote game? ") == 'r':
+    game_type = input("Play (l)ocal or (r)emote game? ")
+    if game_type == 'r':
         remote_game = True
-        hanabi, server, remote_move = start_remote_game(seed)
+        hanabi, server, remote_move = start_remote_game(seed, HanabiServer)
+    elif game_type == 'rt': # remote game test
+        remote_game = True
+        hanabi, server, remote_move = start_remote_game(seed, MockHanabiServer)
     else:
         remote_game = False
         hanabi      = HanabiGame(2, seed)
@@ -106,13 +110,13 @@ def main():
     print("Game over - {}".format(hanabi.end_message))
     print(render_table(hanabi))
 
-def start_remote_game(seed):
+def start_remote_game(seed, server_class):
     player_name = input("What's your name? ")
 
     check_credentials()
     import credentials
 
-    server = HanabiServer('https://api.github.com/gists', credentials)
+    server = server_class('https://api.github.com/gists', credentials)
 
     game_list = server.list_games()
     print("Choose game to join:")
@@ -193,6 +197,7 @@ def render_info(hanabi, id):
            "\n     and is not : {: ^3}{: ^3}{: ^3}{: ^3}{: ^3}".format(*info_not)
 
 class HanabiGame():
+    """Administers a game of Hanabi"""
     game_colours = ["red","yellow","green","blue","white"]
     max_clocks = 8
 
@@ -282,6 +287,7 @@ class HanabiGame():
         self.info[player_id][str(card)] = {'not':set(),'colour':'end','number':' '}
 
 class HanabiServer():
+    """Makes connection and manages comms with a remote server where game file is stored"""
     newgame_prefix = "New "
 
     def __init__(self, url, credentials ):
@@ -371,6 +377,44 @@ class HanabiServer():
                 return move
             #todo add user check every few minutes
             sleep(3)
+
+class MockHanabiServer():
+    """Pretends to connect to a game server, lets player set up or join a fake game
+       and always, always discards the fourth card in any hand
+    """
+    new_game_files = ['Test game 1', 'Test game 2']
+    def __init__(self, url, credentials ):
+        pass
+
+    def list_games(self):
+        return [f for f in self.new_game_files]
+
+    def new_game(self, hanabi, creator_name):
+        self.hanabi = hanabi
+
+    def join_game(self, game_idx, player_name):
+        self.hanabi = HanabiGame(2) # todo update for > 2 players
+        return self.hanabi
+
+    def await_players(self):
+        print("waiting for players", end='', flush=True)
+        sleep(1)
+        print(".", end='', flush=True)
+        sleep(1)
+        print(" player 2 joined")
+
+    def move_and_wait(self, move=None):
+        if move:
+            print("updating game server...", end='', flush=True)
+            print("updated")
+
+        print("waiting for move", end='', flush=True)
+        sleep(1)
+        print(".", end='', flush=True)
+        sleep(1)
+        move = 'dd'
+        print(" found new move {}".format(move))
+        return move
 
 if __name__ == "__main__":
     main()
