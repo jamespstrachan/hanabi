@@ -1,1 +1,5 @@
-requests\n
+system:
+expect (for tests)
+
+pip:
+requests
