@@ -3,39 +3,138 @@ from sys import argv
 from time import sleep
 import requests
 
-def render_cards(list, style="{start} {value} {end}"):
-    op_colours = {
-        "red":    '\033[41m',
-        "yellow": '\033[43m',
-        "green":  '\033[42m',
-        "blue":   '\033[46m',
-        "white":  '\033[7m',
-        "grey":   '\033[100m',
-        "end":    '\033[0m',
-    }
-    return ''.join(style.format(start=op_colours[l[0]], value=str(l[1]), end=op_colours['end']) for l in list)
+def main():
+    seed = argv[1] if len(argv)>1 else None
 
-def render_table(hanabi):
-    op = []
-    op += ["{:=>32}=".format(hanabi.seed)]
-    op += ["clocks:{}, lives:{} ".format(hanabi.clocks, hanabi.lives) + render_cards([pile[-1] for pile in hanabi.table])]
-    op += ["{: >2} remain in deck".format(len(hanabi.deck))]
-    if len(hanabi.discard_pile):
-        op += ["discard pile : "[len(hanabi.discard_pile)-33:] + render_cards(hanabi.discard_pile, style="{start}{value}{end}")]
-    op += ["{:=>33}".format('')]
-    return "\n".join(op)
+    if input("Play (l)ocal or (r)emote game? ") == 'r':
+        remote_game = True
+        hanabi, server, next_move = start_remote_game(seed)
+    else:
+        remote_game = False
+        hanabi      = HanabiGame(2, seed)
+        next_move   = ''
 
-def render_info(hanabi, id):
-    info_not = []
-    for card in hanabi.hands[id]:
-        if str(card) in hanabi.info[id]:
-            info_not.append(''.join(x[0] for x in hanabi.info[id][str(card)]['not']))
+    move_description, input_error, remote_move = None, None, None
+    while hanabi.is_game_over == False:
+        player_id = hanabi.current_player_id()
+
+        os.system('clear')
+        print(render_table(hanabi, move_description))
+
+        if not next_move and input_error is None:
+            if remote_game and not remote_move and move_description is not None:
+                # Transmit last local move to server if playing remote game
+                # as long as we have completed the first local move
+                next_move = server.move_and_wait("{}{}".format(move,submove))
+            elif not remote_game:
+                next_move = input("Player {} press enter".format(player_id+1))
+
+        if len(next_move) != 2:
+        # We make a local move
+            remote_move = False
+            os.system('clear')
+            print(render_table(hanabi, move_description)+"\n")
+            for i in range(hanabi.num_players):
+                print(render_hand(hanabi, i, i==player_id))
+
+            if hanabi.num_players == 2:
+                inform_string = ", (i)nform"
+            else:
+                player_strings = ["Player ("+str(p+1)+")" for p in range(hanabi.num_players) \
+                                                              if p != player_id]
+                inform_string = ", inform {}".format(', '.join(player_strings)) \
+                                if hanabi.clocks > 0 else ""
+
+            if input_error:
+                print(input_error)
+                input_error = None
+            move = input("(p)lay, (d)iscard{}? ".format(inform_string))
+
         else:
-            info_not.append('')
+        # We use the next_move provided
+            remote_move = True
+            move = next_move
+            next_move = ''
 
-    obscured_hand = [(hanabi.info[id][str(card)]['colour'], hanabi.info[id][str(card)]['number']) for card in hanabi.hands[id]]
-    return "        we know : {}".format(render_cards(obscured_hand)) + \
-           "\n     and is not : {: ^3}{: ^3}{: ^3}{: ^3}{: ^3}".format(*info_not)
+        submove = ''
+        if len(move) == 2:
+            move, submove = move
+
+        if move == 'i' and hanabi.num_players == 2:
+        # make "i" move default to other player in 2 player game
+            move = str(2-player_id)
+
+        if move in ['p','d']:
+            while True:
+                if submove:
+                    hand_index = "abcde".find(submove)
+                    if hand_index > -1:
+                        break
+                submove = input("which card to use, a-e? ")
+
+            if move == 'p':
+                hanabi.play(hand_index)
+                action_description = "played"
+            else:
+                hanabi.discard(hand_index)
+                action_description = "discarded"
+            action_description += " card: {}".format(render_cards([hanabi.last_card]))
+
+        elif move.isdigit() and int(move) in range(1, hanabi.num_players+1) and int(move) != player_id+1:
+            if hanabi.clocks < 1:
+                input_error = "no clocks left, can't inform this turn"
+                continue
+            hand_id        = int(move) - 1
+            colours        = hanabi.possible_info(hand_id, type='colour')
+            decorated_cols = ['('+c[0] + ')' + c[1:] for c in colours]
+            numbers        = hanabi.possible_info(hand_id, type='number')
+            while True:
+                if (submove.isdigit() and int(submove) in numbers) \
+                    or submove in [x[0] for x in colours]:
+                    new_info = submove
+                    if not new_info.isdigit():
+                        # turn "g" into "green", for example
+                        new_info = [c for c in hanabi.game_colours if c[0] == submove][0]
+                    break
+                submove = input("inform of {}, {}? ".format(', '.join(map(str, numbers)), ', '.join(sorted(decorated_cols))))
+
+            hanabi.inform(hand_id, new_info)
+            example_card = ("grey", new_info) if new_info.isdigit() \
+                           else (new_info, " ")
+            action_description = "told Player {} about {}s".format(hand_id+1, render_cards([example_card]))
+        else:
+            input_error = 'invalid option "{}", choose from:'.format(move)
+            continue
+
+        move_description = "Player {} {}".format(player_id+1, action_description)
+
+    print()
+    print("Game over - {}".format(hanabi.end_message))
+    print(render_table(hanabi))
+
+def start_remote_game(seed):
+    player_name = input("What's your name? ")
+
+    check_credentials()
+    import credentials
+
+    server = HanabiServer('https://api.github.com/gists', credentials)
+
+    game_list = server.list_games()
+    print("Choose game to join:")
+    print('\n'.join(" - ({}) join {}".format(i, f) for i,f in enumerate(game_list)) or "\n( no current games exist )\n")
+    chosen_game = input(" - (n) create new game? ")
+
+    if chosen_game == 'n':
+        hanabi = HanabiGame(2, seed)
+        server.new_game(hanabi, player_name)
+        server.await_players()
+        next_move = ''
+    else:
+        hanabi = server.join_game(int(chosen_game), player_name)
+        next_move = server.move_and_wait()
+
+    return hanabi, server, next_move
 
 def check_credentials():
     """ Loads credentials if present or requests from user
@@ -58,6 +157,46 @@ def check_credentials():
         fh.close()
         print("Setup complete\n")
 
+def render_cards(list, style="{start} {value} {end}"):
+    op_colours = {
+        "red":    '\033[41m',
+        "yellow": '\033[43m',
+        "green":  '\033[42m',
+        "blue":   '\033[46m',
+        "white":  '\033[7m',
+        "grey":   '\033[100m',
+        "end":    '\033[0m',
+    }
+    return ''.join(style.format(start=op_colours[l[0]], value=str(l[1]), end=op_colours['end']) for l in list)
+
+def render_table(hanabi, move_description = None):
+    op = [move_description if move_description else '']
+    op += ["{:=>32}=".format(hanabi.seed)]
+    op += ["clocks:{}, lives:{} ".format(hanabi.clocks, hanabi.lives) + render_cards([pile[-1] for pile in hanabi.table])]
+    op += ["{: >2} remain in deck".format(len(hanabi.deck))]
+    if len(hanabi.discard_pile):
+        op += ["discard pile : "[len(hanabi.discard_pile)-33:] + render_cards(hanabi.discard_pile, style="{start}{value}{end}")]
+    op += ["{:=>33}".format('')]
+    return "\n".join(op)
+
+def render_hand(hanabi, player_id, is_current_player = False):
+    player_name = "your hand" if is_current_player \
+                  else "player {}'s hand".format(1+player_id)
+    top_line    = render_cards([("grey", x) for x in "abcde"]) if is_current_player \
+                  else render_cards(hanabi.hands[player_id])
+    return "{: >15} : {}".format(player_name, top_line) + \
+           "\n"+ render_info(hanabi, player_id) +"\n"
+
+def render_info(hanabi, id):
+    info_not = []
+    for card in hanabi.hands[id]:
+        if str(card) in hanabi.info[id]:
+            info_not.append(''.join(x[0] for x in hanabi.info[id][str(card)]['not']))
+        else:
+            info_not.append('')
+    obscured_hand = [(hanabi.info[id][str(card)]['colour'], hanabi.info[id][str(card)]['number']) for card in hanabi.hands[id]]
+    return "        we know : {}".format(render_cards(obscured_hand)) + \
+           "\n     and is not : {: ^3}{: ^3}{: ^3}{: ^3}{: ^3}".format(*info_not)
 
 class HanabiGame():
     game_colours = ["red","yellow","green","blue","white"]
@@ -95,7 +234,7 @@ class HanabiGame():
     def current_hand(self):
         return self.hands[self.current_player_id()]
 
-    def list_possible_informs(self, hand_id, type='colour'):
+    def possible_info(self, hand_id, type='colour'):
         return set([card[0 if type=='colour' else 1] for card in self.hands[hand_id]])
 
     def play(self, hand_index):
@@ -238,150 +377,6 @@ class HanabiServer():
                 return move
             #todo add user check every few minutes
             sleep(3)
-
-def start_remote_game(seed):
-    player_name = input("What's your name? ")
-
-    check_credentials()
-    import credentials
-
-    server = HanabiServer('https://api.github.com/gists', credentials)
-
-    game_list = server.list_games()
-    print("Choose game to join:")
-    print('\n'.join(" - ({}) join {}".format(i, f) for i,f in enumerate(game_list)) or "\n( no current games exist )\n")
-    chosen_game = input(" - (n) create new game? ")
-
-    if chosen_game == 'n':
-        hanabi = HanabiGame(2, seed)
-        server.new_game(hanabi, player_name)
-        server.await_players()
-        next_move = ''
-    else:
-        hanabi = server.join_game(int(chosen_game), player_name)
-        next_move = server.move_and_wait()
-
-    return hanabi, server, next_move
-
-def main():
-    seed = argv[1] if len(argv)>1 else None
-    next_move = ''
-    remote_game = False
-    if input("Play (l)ocal or (r)emote game? ") == 'r':
-        remote_game = True
-        hanabi, server, next_move = start_remote_game(seed)
-    else:
-        hanabi = HanabiGame(2, seed)
-
-    previous_player = None
-    input_error     = None
-    remote_move     = None
-    while hanabi.is_game_over == False:
-        current_player = hanabi.current_player_id()
-        # todo rationalise current_player to player_id = player_num - 1 and next_player_id
-
-        os.system('clear')
-        table_header = ''
-        table_header += "Player {} {}\n".format(previous_player+1, action_description) \
-                        if previous_player is not None else "\n"
-        table_header += render_table(hanabi)
-        print(table_header)
-
-        if not next_move and input_error is None:
-            if remote_game and not remote_move and previous_player is not None:
-                # Transmit last local move to server if playing remote game
-                next_move = server.move_and_wait("{}{}".format(move,submove))
-            elif not remote_game:
-                next_move = input("Player {} press enter".format(current_player+1))
-
-        if len(next_move) != 2:
-            # if a next_move hasn't been specified, give user info to make it
-            remote_move = False
-            os.system('clear')
-            print(table_header)
-            print()
-            for i, hand in enumerate(hanabi.hands):
-                if i == current_player:
-                    player_name = "your hand"
-                    top_line = render_cards([("grey", x) for x in "abcde"])
-                else:
-                    player_name = "player {}'s hand".format(1+i)
-                    top_line = render_cards(hand)
-                print("{: >15} : ".format(player_name), end='')
-                print(top_line)
-                print(render_info(hanabi, i))
-                print()
-            if hanabi.num_players == 2:
-                inform_string = ", (i)nform"
-            else:
-                player_string_list = ["Player ("+str(p+1)+")" for p in range(hanabi.num_players) if p != current_player]
-                inform_string = ", inform {}".format(', '.join(player_string_list)) if hanabi.clocks > 0 else ""
-
-            if input_error:
-                print(input_error)
-                input_error = None
-            move = input("(p)lay, (d)iscard{}? ".format(inform_string))
-        else:
-            remote_move = True
-            move, next_move = next_move, ''
-
-        submove = ''
-        if len(move) == 2:
-            submove = move[1]
-            move = move[0]
-
-        # make "i" move default to other player in 2 player game
-        if move == 'i' and hanabi.num_players == 2:
-            move = str(2-current_player)
-
-        if move in ['p','d']:
-            while True:
-                if len(submove) < 1:
-                    submove = input("which card to use, a-e? ")
-                hand_index = "abcde".find(submove)
-                if hand_index > -1:
-                    break
-                submove = ''
-
-            if move == 'p':
-                hanabi.play(hand_index)
-                action_description = "played"
-            else:
-                hanabi.discard(hand_index)
-                action_description = "discarded"
-            action_description += " card: {}".format(render_cards([hanabi.last_card]))
-
-        elif move.isdigit() and int(move) in range(1, hanabi.num_players+1) and int(move) != current_player+1:
-            if hanabi.clocks < 1:
-                input_error = "no clocks left, can't inform this turn"
-                continue
-            hand_id = int(move) - 1
-            cols = hanabi.list_possible_informs(hand_id, type='colour')
-            decorated_cols = ['('+c[0] + ')' + c[1:] for c in cols]
-            nums = hanabi.list_possible_informs(hand_id, type='number')
-            while True:
-                if len(submove) < 1:
-                    submove = input("inform of {}, {}? ".format(', '.join(map(str, nums)), ', '.join(decorated_cols)))
-                if (submove.isdigit() and int(submove) in nums) or submove in [x[0] for x in cols]:
-                    new_info = submove
-                    if not new_info.isdigit():
-                        # turn "g" into "green", for example
-                        new_info = [c for c in hanabi.game_colours if c[0] == submove][0]
-                    break
-                submove = ''
-
-            hanabi.inform(hand_id, new_info)
-            example_card = ("grey", new_info) if new_info.isdigit() else (new_info, " ")
-            action_description = "told Player {} about {}s".format(hand_id+1, render_cards([example_card]))
-        else:
-            input_error = 'invalid option "{}", choose from:'.format(move)
-            continue
-
-        previous_player = current_player
-
-    print()
-    print("Game over - {}".format(hanabi.end_message))
-    print(render_table(hanabi))
 
 if __name__ == "__main__":
     main()
