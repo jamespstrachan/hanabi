@@ -8,30 +8,30 @@ def main():
 
     if input("Play (l)ocal or (r)emote game? ") == 'r':
         remote_game = True
-        hanabi, server, next_move = start_remote_game(seed)
+        hanabi, server, remote_move = start_remote_game(seed)
     else:
         remote_game = False
         hanabi      = HanabiGame(2, seed)
-        next_move   = ''
 
-    move_description, input_error, remote_move = None, None, None
+    move_description, input_error, move_type = None, None, None
     while hanabi.is_game_over == False:
         player_id = hanabi.current_player_id()
 
         os.system('clear')
         print(render_table(hanabi, move_description))
 
-        if not next_move and input_error is None:
-            if remote_game and not remote_move and move_description is not None:
-                # Transmit last local move to server if playing remote game
-                # as long as we have completed the first local move
-                next_move = server.move_and_wait("{}{}".format(move,submove))
+        if input_error is None:
+            if remote_game and move_type == 'local': # remote and not first move
+                remote_move = server.move_and_wait("{}{}".format(move,submove))
             elif not remote_game:
-                next_move = input("Player {} press enter".format(player_id+1))
+                input("Player {} press enter".format(player_id+1))
 
-        if len(next_move) != 2:
-        # We make a local move
-            remote_move = False
+        if remote_game and remote_move:
+            move_type   = 'remote'
+            move        = remote_move
+            remote_move = ''
+        else:
+            move_type = 'local'
             os.system('clear')
             print(render_table(hanabi, move_description)+"\n")
             for i in range(hanabi.num_players):
@@ -44,17 +44,11 @@ def main():
                                                               if p != player_id]
                 inform_string = ", inform {}".format(', '.join(player_strings)) \
                                 if hanabi.clocks > 0 else ""
-
             if input_error:
                 print(input_error)
                 input_error = None
             move = input("(p)lay, (d)iscard{}? ".format(inform_string))
 
-        else:
-        # We use the next_move provided
-            remote_move = True
-            move = next_move
-            next_move = ''
 
         submove = ''
         if len(move) == 2:
@@ -129,12 +123,12 @@ def start_remote_game(seed):
         hanabi = HanabiGame(2, seed)
         server.new_game(hanabi, player_name)
         server.await_players()
-        next_move = ''
+        remote_move = None
     else:
         hanabi = server.join_game(int(chosen_game), player_name)
-        next_move = server.move_and_wait()
+        remote_move = server.move_and_wait()
 
-    return hanabi, server, next_move
+    return hanabi, server, remote_move
 
 def check_credentials():
     """ Loads credentials if present or requests from user
