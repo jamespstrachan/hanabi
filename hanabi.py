@@ -5,39 +5,39 @@ import requests
 
 def main():
     seed = argv[1] if len(argv)>1 else None
+    server = None
 
     game_type = input("Play (l)ocal or (r)emote game? ")
     if game_type == 'r':
-        remote_game = True
-        hanabi, server, remote_move = start_remote_game(seed, HanabiServer)
+        hanabi, server = start_remote_game(seed, HanabiServer)
     elif game_type == 'rt': # remote game test
-        remote_game = True
-        hanabi, server, remote_move = start_remote_game(seed, MockHanabiServer)
+        hanabi, server = start_remote_game(seed, MockHanabiServer)
     else:
-        remote_game = False
-        hanabi      = HanabiGame(2, seed)
+        hanabi = HanabiGame(2, seed)
 
-    move_description, input_error, move_type = None, None, None
+    input_error, move = None, None
+    prev_player_id = -1
+    move_descriptions = []
     while hanabi.is_game_over == False:
         player_id = hanabi.current_player_id()
+        print(hanabi.turn)
+        turn = hanabi.turn
 
-        os.system('clear')
-        print(render_table(hanabi, move_description))
-
-        if input_error is None:
-            if remote_game and move_type == 'local': # remote and not first move
-                remote_move = server.move_and_wait("{}{}".format(move,submove))
-            elif not remote_game:
+        if server and player_id != server.player_id:
+            os.system('clear')
+            print(render_table(hanabi, move_descriptions[1-hanabi.num_players:]))
+            if prev_player_id == server.player_id: # submit only moves we just made locally
+                server.submit_move("{}{}".format(move,submove))
+            move = server.await_move()
+        else:
+            if not server:
+                os.system('clear')
+                print(render_table(hanabi, move_descriptions[1-hanabi.num_players:]))
                 input("Player {} press enter".format(player_id+1))
 
-        if remote_game and remote_move:
-            move_type   = 'remote'
-            move        = remote_move
-            remote_move = ''
-        else:
-            move_type = 'local'
             os.system('clear')
-            print(render_table(hanabi, move_description)+"\n")
+            print(render_table(hanabi, move_descriptions[1-hanabi.num_players:])+"\n")
+
             for i in range(hanabi.num_players):
                 print(render_hand(hanabi, i, i==player_id))
 
@@ -52,7 +52,6 @@ def main():
                 print(input_error)
                 input_error = None
             move = input("(p)lay, (d)iscard{}? ".format(inform_string))
-
 
         submove = ''
         if len(move) == 2:
@@ -104,7 +103,8 @@ def main():
             input_error = 'invalid option "{}", choose from:'.format(move)
             continue
 
-        move_description = "Player {} {}".format(player_id+1, action_description)
+        prev_player_id = player_id
+        move_descriptions.append("Player {} {}".format(player_id+1, action_description))
 
     print()
     print("Game over - {}".format(hanabi.end_message))
@@ -124,15 +124,15 @@ def start_remote_game(seed, server_class):
     chosen_game = input(" - (n) create new game? ")
 
     if chosen_game == 'n':
-        hanabi = HanabiGame(2, seed)
+        num_players = input("how many players (2-5)? ")
+        hanabi      = HanabiGame(int(num_players), seed)
         server.new_game(hanabi, player_name)
         server.await_players()
-        remote_move = None
     else:
         hanabi = server.join_game(int(chosen_game), player_name)
-        remote_move = server.move_and_wait()
+        server.await_players()
 
-    return hanabi, server, remote_move
+    return hanabi, server
 
 def check_credentials():
     """ Loads credentials if present or requests from user
@@ -167,11 +167,11 @@ def render_cards(list, style="{start} {value} {end}"):
     }
     return ''.join(style.format(start=op_colours[l[0]], value=str(l[1]), end=op_colours['end']) for l in list)
 
-def render_table(hanabi, move_description = None):
-    op = [move_description if move_description else '']
+def render_table(hanabi, move_descriptions = []):
+    op = move_descriptions if len(move_descriptions) else ['']
     op += ["{:=>32}=".format(hanabi.seed)]
     op += ["clocks:{}, lives:{} ".format(hanabi.clocks, hanabi.lives) + render_cards([pile[-1] for pile in hanabi.table])]
-    op += ["{: >2} remain in deck".format(len(hanabi.deck))]
+    op += ["turns:{: >2}, {: >2} remain in deck".format(hanabi.turn, len(hanabi.deck))]
     if len(hanabi.discard_pile):
         op += ["discard pile : "[len(hanabi.discard_pile)-33:] + render_cards(hanabi.discard_pile, style="{start}{value}{end}")]
     op += ["{:=>33}".format('')]
@@ -189,7 +189,7 @@ def render_info(hanabi, id):
     info_not = []
     for card in hanabi.hands[id]:
         if str(card) in hanabi.info[id]:
-            info_not.append(''.join(x[0] for x in hanabi.info[id][str(card)]['not']))
+            info_not.append(''.join(x[0] for x in sorted(hanabi.info[id][str(card)]['not'])))
         else:
             info_not.append('')
     obscured_hand = [(hanabi.info[id][str(card)]['colour'], hanabi.info[id][str(card)]['number']) for card in hanabi.hands[id]]
@@ -302,32 +302,49 @@ class HanabiServer():
 
     def new_game(self, hanabi, creator_name):
         self.hanabi     = hanabi
+        self.player_id  = 0
         self.game_title = "game by {} on {}".format(creator_name, datetime.datetime.now().strftime('%c'))
-        content         = json.dumps({"seed": hanabi.seed, "players": [creator_name], "moves":[]}, indent=4)
+        content         = json.dumps({
+                                       "seed":        hanabi.seed,
+                                       "num_players": hanabi.num_players,
+                                       "players":     [creator_name],
+                                       "moves":       []
+                                    }, indent=4)
         file_json       = {"files":{(self.newgame_prefix+self.game_title):{"content":content}}}
         response_json   = self.request("POST", file_json)
 
     def join_game(self, game_idx, player_name):
-        game_file = self.new_game_files[game_idx]
-        game_content = json.loads(game_file['content'])
-        seed = game_content['seed']
-        hanabi = HanabiGame(2, seed) # todo update for > 2 players
-
+        game_file       = self.new_game_files[game_idx]
+        game_content    = json.loads(game_file['content'])
+        self.player_id  = len(game_content['players'])
         game_content['players'].append(player_name)
+
+        filename = game_file['filename']
+        # When the last player needed joins we update the gamefile's name to show it's full
         self.game_title = game_file['filename'][len(self.newgame_prefix):]
+        if len(game_content['players']) == game_content['num_players']:
+            filename = self.game_title
+
         file_json = {
                     "files":{
                         game_file['filename']:{
-                            "filename": self.game_title, # Update title to remove newgame_prefix
+                            "filename": filename,
                             "content": json.dumps(game_content, indent=4),
                             }
                         }
                     }
-        response_json = self.request("PATCH", file_json)
-        return hanabi
 
-    def request(self, verb = 'GET', json = None):
-        return requests.request(verb, self.url, headers=self.headers, json=json).json()
+        response_json = self.request("PATCH", file_json)
+
+        self.hanabi = HanabiGame(game_content['num_players'], game_content['seed'])
+        return self.hanabi
+
+    def request(self, verb = 'GET', payload = None):
+        response = requests.request(verb, self.url, headers=self.headers, json=payload)
+        if response.status_code != 200:
+            print(json.dumps(response.json(), indent=4))
+            exit()
+        return response.json()
 
     def parse_content(self, content_json):
         return json.loads(content_json['files'][self.game_title]['content'])
@@ -335,13 +352,18 @@ class HanabiServer():
     def await_players(self):
         print("waiting for players", end='', flush=True)
         #todo add delayed start to skip a few seconds before polling begins
+        player_count = self.player_id + 1
         while True:
             response_json = self.request()
             print(".", end='', flush=True)
             if self.game_title in response_json['files']:
                 game_content = self.parse_content(response_json)
+                print("{} of {},".format(len(game_content['players']), self.hanabi.num_players), end='', flush=True)
+                if len(game_content['players']) > player_count:
+                    print(" player {} joined".format(game_content['players'][player_count]), flush=True)
+                    player_count = len(game_content['players'])
                 if len(game_content['players']) == self.hanabi.num_players:
-                    print(" player {} joined".format(game_content['players'][-1]), flush=True)
+                    # todo re-issue player_id based on finished order to avoid race condition
                     return
             #todo add user check every few minutes
             sleep(3)
@@ -355,24 +377,23 @@ class HanabiServer():
         response_json = self.request("GET")
         return self.parse_content(response_json)
 
-    def move_and_wait(self, move=None):
-        move_count = 0
-        if move:
-            print("updating game server...", end='', flush=True)
-            game_content = self.get_game_state()
-            game_content['moves'].append(move)
-            move_count = len(game_content['moves'])
-            self.set_game_state(game_content)
-            print("updated")
+    def submit_move(self, move):
+        print("updating game server...", end='', flush=True)
+        game_content = self.get_game_state()
+        game_content['moves'].append(move)
+        self.set_game_state(game_content)
+        print("updated")
 
+    def await_move(self):
         print("waiting for move", end='', flush=True)
         #todo add delayed start to skip a few seconds before polling begins
+        #todo make checking less frequent when you've just played, more frequent
+        #     when you're next to play in >2 player games
         while True:
             print(".", end='', flush=True)
             game_content = self.get_game_state()
-            if len(game_content['moves']) > move_count:
-                move = game_content['moves'][move_count]
-                #todo make this take an array of moves for >2 player
+            if len(game_content['moves']) > self.hanabi.turn:
+                move = game_content['moves'][-1]
                 print(" found new move {}".format(move))
                 return move
             #todo add user check every few minutes
@@ -382,7 +403,7 @@ class MockHanabiServer():
     """Pretends to connect to a game server, lets player set up or join a fake game
        and always, always discards the fourth card in any hand
     """
-    new_game_files = ['Test game 1', 'Test game 2']
+    new_game_files = ['Test game for two players', 'Test game for three players']
     def __init__(self, url, credentials ):
         pass
 
@@ -390,10 +411,12 @@ class MockHanabiServer():
         return [f for f in self.new_game_files]
 
     def new_game(self, hanabi, creator_name):
+        self.player_id = 0
         self.hanabi = hanabi
 
     def join_game(self, game_idx, player_name):
-        self.hanabi = HanabiGame(2) # todo update for > 2 players
+        self.hanabi = HanabiGame(game_idx + 2, 'iFduD') # Hardcoded seed to allow consistent performance for testing
+        self.player_id = 1
         return self.hanabi
 
     def await_players(self):
@@ -403,17 +426,18 @@ class MockHanabiServer():
         sleep(1)
         print(" player 2 joined")
 
-    def move_and_wait(self, move=None):
-        if move:
-            print("updating game server...", end='', flush=True)
-            print("updated")
+    def submit_move(self, move):
+        print("updating game server...", end='', flush=True)
+        sleep(1)
+        print("updated")
 
+    def await_move(self):
         print("waiting for move", end='', flush=True)
         sleep(1)
         print(".", end='', flush=True)
         sleep(1)
         move = 'dd'
-        print(" found new move {}".format(move))
+        print(" found new move(s) {}".format(move))
         return move
 
 if __name__ == "__main__":
