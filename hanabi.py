@@ -155,7 +155,7 @@ def check_credentials():
         fh.close()
         print("Setup complete\n")
 
-def render_cards(list, style="{start} {value} {end}"):
+def render_cards(list, width = 3):
     op_colours = {
         "red":    '\033[41m',
         "yellow": '\033[43m',
@@ -165,7 +165,8 @@ def render_cards(list, style="{start} {value} {end}"):
         "grey":   '\033[100m',
         "end":    '\033[0m',
     }
-    return ''.join(style.format(start=op_colours[l[0]], value=str(l[1]), end=op_colours['end']) for l in list)
+    card_template = "{}{: ^"+str(width)+"}{}"
+    return ''.join(card_template.format(op_colours[l[0]], str(l[1]), op_colours['end']) for l in list)
 
 def render_table(hanabi, move_descriptions = []):
     op = move_descriptions if len(move_descriptions) else ['']
@@ -173,7 +174,7 @@ def render_table(hanabi, move_descriptions = []):
     op += ["clocks:{}, lives:{} ".format(hanabi.clocks, hanabi.lives) + render_cards([pile[-1] for pile in hanabi.table])]
     op += ["turns:{: >2}, {: >2} remain in deck".format(hanabi.turn, len(hanabi.deck))]
     if len(hanabi.discard_pile):
-        op += ["discard pile : "[len(hanabi.discard_pile)-33:] + render_cards(hanabi.discard_pile, style="{start}{value}{end}")]
+        op += ["discard pile : "[len(hanabi.discard_pile)-33:] + render_cards(hanabi.discard_pile, width=1)]
     op += ["{:=>33}".format('')]
     return "\n".join(op)
 
@@ -186,16 +187,22 @@ def render_hand(hanabi, player_id, is_current_player = False):
            "\n"+ render_info(hanabi, player_id) +"\n"
 
 def render_info(hanabi, id):
-    info_not = []
+    not_colour_row, not_number_row = '', ''
     for card in hanabi.hands[id]:
+        info = hanabi.info[id][str(card)]
         if str(card) in hanabi.info[id]:
-            info_not.append(''.join(x[0] for x in sorted(hanabi.info[id][str(card)]['not'])))
-        else:
-            info_not.append('')
-    # todo simplify 'known' stuff to show max 3 unknown numbers, max 3 unknown colours
-    obscured_hand = [(hanabi.info[id][str(card)]['colour'], hanabi.info[id][str(card)]['number']) for card in hanabi.hands[id]]
-    return "        we know : {}".format(render_cards(obscured_hand)) + \
-           "\n     and is not : {: ^3}{: ^3}{: ^3}{: ^3}{: ^3}".format(*info_not)
+            not_colour_row += ''.join(render_cards([(x,' ')],width=1) for x in sorted(info['not_colour']))
+            not_colour_row += ''.join(" " for _ in range(3-len(info['not_colour'])))
+            not_number_row += "{:<3}".format(''.join(str(x) for x in sorted(info['not_number'])))
+
+    obscured_hand = []
+    for card in hanabi.hands[id]:
+        card_info = hanabi.info[id][str(card)]
+        obscured_hand.append((card_info['colour'] if card_info['colour'] else 'end', \
+                              card_info['number'] if card_info['number'] else ' '))
+    return "     we know is : {}".format(render_cards(obscured_hand)) + \
+         "\n     not colour : {}".format(not_colour_row) + \
+         "\n     not number : {}".format(not_number_row)
 
 class HanabiGame():
     """Administers a game of Hanabi"""
@@ -267,10 +274,22 @@ class HanabiGame():
             hand_info = self.info[hand_id][str(card)]
             if card[0] == info:
                 hand_info['colour'] = info
+                hand_info['not_colour'] = set()
             elif info.isdigit() and card[1] == int(info):
                 hand_info['number'] = info
-            else:
-                hand_info['not'].add(info)
+                hand_info['not_number'] = set()
+            elif info.isdigit() and not hand_info['number']:
+                nn = hand_info['not_number']
+                nn.add(int(info))
+                if len(nn) == 4: # four is-nots = one is!
+                    hand_info['number']     = list(set([1,2,3,4,5]) - nn)[0]
+                    hand_info['not_number'] = set()
+            elif not info.isdigit() and not hand_info['colour']:
+                nc = hand_info['not_colour']
+                nc.add(info)
+                if len(nc) == 4: # four is-nots = one is!
+                    hand_info['colour']     = list(set(self.game_colours) - nc)[0]
+                    hand_info['not_colour'] = set()
         self.clocks -= 1
         self.turn += 1
 
@@ -287,7 +306,7 @@ class HanabiGame():
         card = self.deck.pop()
         # todo set up endgame state once deck is empty
         self.hands[player_id].append(card)
-        self.info[player_id][str(card)] = {'not':set(),'colour':'end','number':' '}
+        self.info[player_id][str(card)] = {'colour':None, 'number':None, 'not_number':set(), 'not_colour':set()}
 
 class HanabiServer():
     """Makes connection and manages comms with a remote server where game file is stored"""
