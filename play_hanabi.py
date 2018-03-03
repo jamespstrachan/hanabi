@@ -26,7 +26,7 @@ def main():
                 server.submit_move("{}{}".format(move,submove))
             move = server.await_move()
         else:
-            if not server:
+            if not server and not input_error:
                 os.system('clear')
                 print(render_table(hanabi, move_descriptions[1-hanabi.num_players:]))
                 input("Player {} press enter".format(player_id+1))
