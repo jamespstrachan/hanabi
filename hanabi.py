@@ -192,6 +192,7 @@ def render_info(hanabi, id):
             info_not.append(''.join(x[0] for x in sorted(hanabi.info[id][str(card)]['not'])))
         else:
             info_not.append('')
+    # todo simplify 'known' stuff to show max 3 unknown numbers, max 3 unknown colours
     obscured_hand = [(hanabi.info[id][str(card)]['colour'], hanabi.info[id][str(card)]['number']) for card in hanabi.hands[id]]
     return "        we know : {}".format(render_cards(obscured_hand)) + \
            "\n     and is not : {: ^3}{: ^3}{: ^3}{: ^3}{: ^3}".format(*info_not)
@@ -246,6 +247,7 @@ class HanabiGame():
                 self.add_clock()
         else:
             if self.lives == 0:
+                # todo make proper lose state response, perhaps generator?
                 self.end_message = "ran out of lives"
                 self.is_game_over = True
                 self.lives = '!'
@@ -283,6 +285,7 @@ class HanabiGame():
 
     def replenish_hand(self, player_id):
         card = self.deck.pop()
+        # todo set up endgame state once deck is empty
         self.hands[player_id].append(card)
         self.info[player_id][str(card)] = {'not':set(),'colour':'end','number':' '}
 
@@ -340,6 +343,7 @@ class HanabiServer():
         return self.hanabi
 
     def request(self, verb = 'GET', payload = None):
+        # todo: make this function contain all github-specific code, just return our chosen game json
         response = requests.request(verb, self.url, headers=self.headers, json=payload)
         if response.status_code != 200:
             print(json.dumps(response.json(), indent=4))
@@ -351,11 +355,13 @@ class HanabiServer():
 
     def await_players(self):
         print("waiting for players", end='', flush=True)
-        #todo add delayed start to skip a few seconds before polling begins
+        sleep(10)
         player_count = self.player_id + 1
+        count_checks = 0
         while True:
-            response_json = self.request()
+            count_checks += 1
             print(".", end='', flush=True)
+            response_json = self.request()
             if self.game_title in response_json['files']:
                 game_content = self.parse_content(response_json)
                 print("{} of {},".format(len(game_content['players']), self.hanabi.num_players), end='', flush=True)
@@ -365,7 +371,9 @@ class HanabiServer():
                 if len(game_content['players']) == self.hanabi.num_players:
                     # todo re-issue player_id based on finished order to avoid race condition
                     return
-            #todo add user check every few minutes
+            if count_checks % 20 == 19:
+                input("\npaused, press enter to resume")
+                print("resumed", end='', flush=True)
             sleep(3)
 
     def set_game_state(self, game_content):
@@ -386,18 +394,22 @@ class HanabiServer():
 
     def await_move(self):
         print("waiting for move", end='', flush=True)
-        #todo add delayed start to skip a few seconds before polling begins
-        #todo make checking less frequent when you've just played, more frequent
-        #     when you're next to play in >2 player games
+        sleep(10)
+        count_checks = 0
         while True:
+            count_checks += 1
             print(".", end='', flush=True)
             game_content = self.get_game_state()
             if len(game_content['moves']) > self.hanabi.turn:
-                move = game_content['moves'][-1]
+                moves = game_content['moves']
+                move  = moves[-1]
                 print(" found new move {}".format(move))
                 return move
-            #todo add user check every few minutes
-            sleep(3)
+            turns_to_wait = (self.player_id - self.hanabi.current_player_id()) % self.hanabi.num_players
+            if count_checks % 20 == 19:
+                input("\npaused, press enter to resume")
+                print("resumed", end='', flush=True)
+            sleep(3*turns_to_wait)
 
 class MockHanabiServer():
     """Pretends to connect to a game server, lets player set up or join a fake game
