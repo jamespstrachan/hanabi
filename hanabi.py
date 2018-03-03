@@ -6,13 +6,21 @@ import requests
 class HanabiGame():
     """Administers a game of Hanabi"""
     game_colours = ["red","yellow","green","blue","white"]
-    max_clocks = 8
+    max_clocks   = 8
+    score_translations = {
+            0:  "horrible, booed by the crowd...",
+            6:  "mediocre, just a spattering of applause.",
+            11: "honourable, but will not be remembered for very long...",
+            16: "excellent, crowd pleasing.",
+            21: "amazing, will be remembered for a very long time!",
+            25: "legendary, everyone left speechless, stars in their eyes",
+        }
 
     def __init__(self, num_players = 2, seed = None):
         self.lives        = 2
         self.clocks       = 8
         self.turn         = 0
-        self.is_game_over = False
+        self.final_turn   = None
         self.last_card    = None
         self.num_players  = num_players
         self.seed         = seed if seed is not None else self.random_seed()
@@ -27,6 +35,32 @@ class HanabiGame():
         random.seed(self.seed)
         random.shuffle(self.deck)
         [self.replenish_hand(i) for _ in range(5) for i,_ in enumerate(self.hands)]
+        ##self.deck = self.deck[-3:]## helpful to shorten deck for testing
+
+    def is_game_over(self):
+        return bool(self.end_message())
+
+    def end_message(self):
+        # todo - perhaps these should be enumerated as codes for something else to translate and render?
+        if self.lives == 0:
+            return "you ran out of lives"
+        if self.turn == self.final_turn:
+            return "you used all the cards"
+        if self.score() == 25:
+            return "you completed the game"
+        return None
+
+    def score(self):
+        return sum(pile[-1][1] for pile in self.table)
+
+    def score_meaning(self):
+        score   = 0
+        meaning = None
+        while score <= self.score():
+            if score in self.score_translations:
+                meaning = self.score_translations[score]
+            score += 1
+        return meaning
 
     def scarcity(self, number):
         return 1 if number == 5 else 3 if number == 1 else 2
@@ -52,13 +86,7 @@ class HanabiGame():
             if card[1] == 5:
                 self.add_clock()
         else:
-            if self.lives == 0:
-                # todo make proper lose state response, perhaps generator?
-                self.end_message = "ran out of lives"
-                self.is_game_over = True
-                self.lives = '!'
-            else:
-                self.lives -=1
+            self.lives -=1
             self.discard_pile.append(card)
         self.turn += 1
 
@@ -102,10 +130,12 @@ class HanabiGame():
         self.clocks += 1 if self.clocks < self.max_clocks else 0
 
     def replenish_hand(self, player_id):
-        card = self.deck.pop()
-        # todo set up endgame state once deck is empty
-        self.hands[player_id].append(card)
-        self.info[player_id][str(card)] = {'colour':None, 'number':None, 'not_number':set(), 'not_colour':set()}
+        if len(self.deck):
+            card = self.deck.pop()
+            self.hands[player_id].append(card)
+            self.info[player_id][str(card)] = {'colour':None, 'number':None, 'not_number':set(), 'not_colour':set()}
+        elif not self.final_turn:
+            self.final_turn = self.turn + self.num_players
 
 class HanabiServer():
     """Makes connection and manages comms with a remote server where game file is stored"""

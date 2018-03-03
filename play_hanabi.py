@@ -1,4 +1,4 @@
-import os
+import os, textwrap
 from sys import argv
 from hanabi import HanabiGame, HanabiServer, MockHanabiServer
 
@@ -17,7 +17,7 @@ def main():
     input_error, move = None, None
     prev_player_id = -1
     move_descriptions = []
-    while hanabi.is_game_over == False:
+    while hanabi.is_game_over() == False:
         player_id = hanabi.current_player_id()
         turn = hanabi.turn
 
@@ -102,9 +102,11 @@ def main():
         prev_player_id = player_id
         move_descriptions.append("Player {} {}".format(player_id+1, action_description))
 
-    print()
-    print("Game over - {}".format(hanabi.end_message))
+    os.system('clear')
+    print("\nGame over, {}\n".format(hanabi.end_message()))
+    print(textwrap.fill('Score of {} means "{}"'.format(hanabi.score(), hanabi.score_meaning()), 33))
     print(render_table(hanabi))
+    print("\n".join(render_hand(hanabi, i, False) for i in range(hanabi.num_players)))
 
 def start_remote_game(seed, server_class):
     player_name = input("What's your name? ")
@@ -168,7 +170,7 @@ def render_table(hanabi, move_descriptions = []):
     op = move_descriptions if len(move_descriptions) else ['']
     op += ["{:=>32}=".format(hanabi.seed)]
     op += ["clocks:{}, lives:{} ".format(hanabi.clocks, hanabi.lives) + render_cards([pile[-1] for pile in hanabi.table])]
-    op += ["turns:{: >2}, {: >2} remain in deck".format(hanabi.turn, len(hanabi.deck))]
+    op += ["turns:{: >2}, deck:{: >2}      score: {: >2}".format(hanabi.turn, len(hanabi.deck), hanabi.score())]
     if len(hanabi.discard_pile):
         op += ["discard pile : "[len(hanabi.discard_pile)-33:] + render_cards(hanabi.discard_pile, width=1)]
     op += ["{:=>33}".format('')]
@@ -188,7 +190,7 @@ def render_info(hanabi, id):
         info = hanabi.info[id][str(card)]
         if str(card) in hanabi.info[id]:
             not_colour_row += ''.join(render_cards([(x,' ')],width=1) for x in sorted(info['not_colour']))
-            not_colour_row += ''.join(" " for _ in range(3-len(info['not_colour'])))
+            not_colour_row += (3-len(info['not_colour'])) * " "
             not_number_row += "{:<3}".format(''.join(str(x) for x in sorted(info['not_number'])))
 
     obscured_hand = []
