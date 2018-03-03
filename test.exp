@@ -51,194 +51,43 @@ spawn python hanabi.py FfBux
 match_max 100000
 expect -exact "Play (l)ocal or (r)emote game? "
 send -- "l\r"
-expect -exact "l\r
-0\r
-\[3;J\[H\[2J\r
-===========================FfBux=\r
-clocks:8, lives:2 \[41m 0 \[0m\[43m 0 \[0m\[42m 0 \[0m\[46m 0 \[0m\[7m 0 \[0m\r
-turns: 0, 40 remain in deck\r
-=================================\r
-Player 1 press enter"
+expect -exact "Player 1 press enter"
 send -- "\r"
-expect -exact "\r
-\[3;J\[H\[2J\r
-===========================FfBux=\r
-clocks:8, lives:2 \[41m 0 \[0m\[43m 0 \[0m\[42m 0 \[0m\[46m 0 \[0m\[7m 0 \[0m\r
-turns: 0, 40 remain in deck\r
-=================================\r
-\r
-      your hand : \[100m a \[0m\[100m b \[0m\[100m c \[0m\[100m d \[0m\[100m e \[0m\r
-        we know : \[0m   \[0m\[0m   \[0m\[0m   \[0m\[0m   \[0m\[0m   \[0m\r
-     and is not :                \r
-\r
-player 2's hand : \[46m 1 \[0m\[46m 5 \[0m\[42m 4 \[0m\[46m 1 \[0m\[41m 4 \[0m\r
-        we know : \[0m   \[0m\[0m   \[0m\[0m   \[0m\[0m   \[0m\[0m   \[0m\r
-     and is not :                \r
-\r
-(p)lay, (d)iscard, (i)nform? "
+expect -exact "(p)lay, (d)iscard, (i)nform? "
 send -- "i1\r"
-expect -exact "i1\r
-1\r
-\[3;J\[H\[2JPlayer 1 told Player 2 about \[100m 1 \[0ms\r
-===========================FfBux=\r
-clocks:7, lives:2 \[41m 0 \[0m\[43m 0 \[0m\[42m 0 \[0m\[46m 0 \[0m\[7m 0 \[0m\r
-turns: 1, 40 remain in deck\r
-=================================\r
-Player 2 press enter"
+expect -exact "Player 2 press enter"
 send -- "\r"
-expect -exact "\r
-\[3;J\[H\[2JPlayer 1 told Player 2 about \[100m 1 \[0ms\r
-===========================FfBux=\r
-clocks:7, lives:2 \[41m 0 \[0m\[43m 0 \[0m\[42m 0 \[0m\[46m 0 \[0m\[7m 0 \[0m\r
-turns: 1, 40 remain in deck\r
-=================================\r
-\r
-player 1's hand : \[43m 4 \[0m\[41m 2 \[0m\[41m 2 \[0m\[41m 1 \[0m\[42m 5 \[0m\r
-        we know : \[0m   \[0m\[0m   \[0m\[0m   \[0m\[0m   \[0m\[0m   \[0m\r
-     and is not :                \r
-\r
-      your hand : \[100m a \[0m\[100m b \[0m\[100m c \[0m\[100m d \[0m\[100m e \[0m\r
-        we know : \[0m 1 \[0m\[0m   \[0m\[0m   \[0m\[0m 1 \[0m\[0m   \[0m\r
-     and is not :     1  1     1 \r
-\r
-(p)lay, (d)iscard, (i)nform? "
+expect -exact "(p)lay, (d)iscard, (i)nform? "
 send -- "pa\r"
-expect -exact "pa\r
-2\r
-\[3;J\[H\[2JPlayer 2 played card: \[46m 1 \[0m\r
-===========================FfBux=\r
-clocks:7, lives:2 \[41m 0 \[0m\[43m 0 \[0m\[42m 0 \[0m\[46m 1 \[0m\[7m 0 \[0m\r
-turns: 2, 39 remain in deck\r
-=================================\r
-Player 1 press enter"
+expect -exact "Player 1 press enter"
 send -- "\r"
-expect -exact "\r
-\[3;J\[H\[2JPlayer 2 played card: \[46m 1 \[0m\r
-===========================FfBux=\r
-clocks:7, lives:2 \[41m 0 \[0m\[43m 0 \[0m\[42m 0 \[0m\[46m 1 \[0m\[7m 0 \[0m\r
-turns: 2, 39 remain in deck\r
-=================================\r
-\r
-      your hand : \[100m a \[0m\[100m b \[0m\[100m c \[0m\[100m d \[0m\[100m e \[0m\r
-        we know : \[0m   \[0m\[0m   \[0m\[0m   \[0m\[0m   \[0m\[0m   \[0m\r
-     and is not :                \r
-\r
-player 2's hand : \[46m 5 \[0m\[42m 4 \[0m\[46m 1 \[0m\[41m 4 \[0m\[43m 1 \[0m\r
-        we know : \[0m   \[0m\[0m   \[0m\[0m 1 \[0m\[0m   \[0m\[0m   \[0m\r
-     and is not :  1  1     1    \r
-\r
-(p)lay, (d)iscard, (i)nform? "
+expect -exact "(p)lay, (d)iscard, (i)nform? "
 send -- "dd\r"
-expect -exact "dd\r
-3\r
-\[3;J\[H\[2JPlayer 1 discarded card: \[41m 1 \[0m\r
-===========================FfBux=\r
-clocks:8, lives:2 \[41m 0 \[0m\[43m 0 \[0m\[42m 0 \[0m\[46m 1 \[0m\[7m 0 \[0m\r
-turns: 3, 38 remain in deck\r
-discard pile : \[41m1\[0m\r
-=================================\r
-Player 2 press enter"
+expect -exact "Player 2 press enter"
 send -- "\r"
-expect -exact "\r
-\[3;J\[H\[2JPlayer 1 discarded card: \[41m 1 \[0m\r
-===========================FfBux=\r
-clocks:8, lives:2 \[41m 0 \[0m\[43m 0 \[0m\[42m 0 \[0m\[46m 1 \[0m\[7m 0 \[0m\r
-turns: 3, 38 remain in deck\r
-discard pile : \[41m1\[0m\r
-=================================\r
-\r
-player 1's hand : \[43m 4 \[0m\[41m 2 \[0m\[41m 2 \[0m\[42m 5 \[0m\[43m 1 \[0m\r
-        we know : \[0m   \[0m\[0m   \[0m\[0m   \[0m\[0m   \[0m\[0m   \[0m\r
-     and is not :                \r
-\r
-      your hand : \[100m a \[0m\[100m b \[0m\[100m c \[0m\[100m d \[0m\[100m e \[0m\r
-        we know : \[0m   \[0m\[0m   \[0m\[0m 1 \[0m\[0m   \[0m\[0m   \[0m\r
-     and is not :  1  1     1    \r
-\r
-(p)lay, (d)iscard, (i)nform? "
+expect -exact "(p)lay, (d)iscard, (i)nform? "
 send -- "i\r"
-expect -exact "i\r
-inform of 1, 2, 4, 5, (g)reen, (r)ed, (y)ellow? "
+expect -exact "inform of 1, 2, 4, 5, (g)reen, (r)ed, (y)ellow? "
 send -- "b\r"
-expect -exact "b\r
-inform of 1, 2, 4, 5, (g)reen, (r)ed, (y)ellow? "
+expect -exact "inform of 1, 2, 4, 5, (g)reen, (r)ed, (y)ellow? "
 send -- "y\r"
-expect -exact "y\r
-4\r
-\[3;J\[H\[2JPlayer 2 told Player 1 about \[43m   \[0ms\r
-===========================FfBux=\r
-clocks:7, lives:2 \[41m 0 \[0m\[43m 0 \[0m\[42m 0 \[0m\[46m 1 \[0m\[7m 0 \[0m\r
-turns: 4, 38 remain in deck\r
-discard pile : \[41m1\[0m\r
-=================================\r
-Player 1 press enter"
+expect -exact "Player 1 press enter"
 send -- "\r"
-expect -exact "\r
-\[3;J\[H\[2JPlayer 2 told Player 1 about \[43m   \[0ms\r
-===========================FfBux=\r
-clocks:7, lives:2 \[41m 0 \[0m\[43m 0 \[0m\[42m 0 \[0m\[46m 1 \[0m\[7m 0 \[0m\r
-turns: 4, 38 remain in deck\r
-discard pile : \[41m1\[0m\r
-=================================\r
-\r
-      your hand : \[100m a \[0m\[100m b \[0m\[100m c \[0m\[100m d \[0m\[100m e \[0m\r
-        we know : \[43m   \[0m\[0m   \[0m\[0m   \[0m\[0m   \[0m\[43m   \[0m\r
-     and is not :     y  y  y    \r
-\r
-player 2's hand : \[46m 5 \[0m\[42m 4 \[0m\[46m 1 \[0m\[41m 4 \[0m\[43m 1 \[0m\r
-        we know : \[0m   \[0m\[0m   \[0m\[0m 1 \[0m\[0m   \[0m\[0m   \[0m\r
-     and is not :  1  1     1    \r
-\r
-(p)lay, (d)iscard, (i)nform? "
+expect -exact "(p)lay, (d)iscard, (i)nform? "
 send -- "i"
 expect -exact " "
 send -- "d\r"
-expect -exact "d\r
-which card to use, a-e? "
+expect -exact "which card to use, a-e? "
 send -- "c\r"
-expect -exact "c\r
-5\r
-\[3;J\[H\[2JPlayer 1 discarded card: \[41m 2 \[0m\r
-===========================FfBux=\r
-clocks:8, lives:2 \[41m 0 \[0m\[43m 0 \[0m\[42m 0 \[0m\[46m 1 \[0m\[7m 0 \[0m\r
-turns: 5, 37 remain in deck\r
-discard pile : \[41m1\[0m\[41m2\[0m\r
-=================================\r
-Player 2 press enter"
+expect -exact "Player 2 press enter"
 send -- "\r"
-expect -exact "\r
-\[3;J\[H\[2JPlayer 1 discarded card: \[41m 2 \[0m\r
-===========================FfBux=\r
-clocks:8, lives:2 \[41m 0 \[0m\[43m 0 \[0m\[42m 0 \[0m\[46m 1 \[0m\[7m 0 \[0m\r
-turns: 5, 37 remain in deck\r
-discard pile : \[41m1\[0m\[41m2\[0m\r
-=================================\r
-\r
-player 1's hand : \[43m 4 \[0m\[41m 2 \[0m\[42m 5 \[0m\[43m 1 \[0m\[42m 2 \[0m\r
-        we know : \[43m   \[0m\[0m   \[0m\[0m   \[0m\[43m   \[0m\[0m   \[0m\r
-     and is not :     y  y       \r
-\r
-      your hand : \[100m a \[0m\[100m b \[0m\[100m c \[0m\[100m d \[0m\[100m e \[0m\r
-        we know : \[0m   \[0m\[0m   \[0m\[0m 1 \[0m\[0m   \[0m\[0m   \[0m\r
-     and is not :  1  1     1    \r
-\r
-(p)lay, (d)iscard, (i)nform? "
+expect -exact "(p)lay, (d)iscard, (i)nform? "
 send -- "p\r"
-expect -exact "p\r
-which card to use, a-e? "
+expect -exact "which card to use, a-e? "
 send -- "p\r"
-expect -exact "p\r
-which card to use, a-e? "
+expect -exact "which card to use, a-e? "
 send -- "a\r"
-expect -exact "a\r
-6\r
-\[3;J\[H\[2JPlayer 2 played card: \[46m 5 \[0m\r
-===========================FfBux=\r
-clocks:8, lives:1 \[41m 0 \[0m\[43m 0 \[0m\[42m 0 \[0m\[46m 1 \[0m\[7m 0 \[0m\r
-turns: 6, 36 remain in deck\r
-discard pile : \[41m1\[0m\[41m2\[0m\[46m5\[0m\r
-=================================\r
-Player 1 press enter"
+expect -exact "Player 1 press enter"
 send -- "\n"
 
 
@@ -257,135 +106,19 @@ spawn python hanabi.py FfBux
 match_max 100000
 expect -exact "Play (l)ocal or (r)emote game? "
 send -- "rt\r"
-expect -exact "rt\r
-What's your name? "
+expect -exact "What's your name? "
 send -- "James\r"
-expect -exact "James\r
-Choose game to join:\r
- - (0) join Test game for two players\r
- - (1) join Test game for three players\r
- - (n) create new game? "
+expect -exact " - (n) create new game? "
 send -- "1\r"
-expect -exact "1\r
-waiting for players. player 2 joined\r
-0\r
-\[3;J\[H\[2J\r
-===========================iFduD=\r
-clocks:8, lives:2 \[41m 0 \[0m\[43m 0 \[0m\[42m 0 \[0m\[46m 0 \[0m\[7m 0 \[0m\r
-turns: 0, 35 remain in deck\r
-=================================\r
-waiting for move. found new move(s) dd\r
-1\r
-\[3;J\[H\[2JPlayer 1 discarded card: \[46m 4 \[0m\r
-===========================iFduD=\r
-clocks:8, lives:2 \[41m 0 \[0m\[43m 0 \[0m\[42m 0 \[0m\[46m 0 \[0m\[7m 0 \[0m\r
-turns: 1, 34 remain in deck\r
-discard pile : \[46m4\[0m\r
-=================================\r
-\r
-player 1's hand : \[41m 5 \[0m\[42m 1 \[0m\[41m 4 \[0m\[41m 2 \[0m\[43m 2 \[0m\r
-        we know : \[0m   \[0m\[0m   \[0m\[0m   \[0m\[0m   \[0m\[0m   \[0m\r
-     and is not :                \r
-\r
-      your hand : \[100m a \[0m\[100m b \[0m\[100m c \[0m\[100m d \[0m\[100m e \[0m\r
-        we know : \[0m   \[0m\[0m   \[0m\[0m   \[0m\[0m   \[0m\[0m   \[0m\r
-     and is not :                \r
-\r
-player 3's hand : \[42m 1 \[0m\[41m 1 \[0m\[43m 1 \[0m\[46m 3 \[0m\[42m 4 \[0m\r
-        we know : \[0m   \[0m\[0m   \[0m\[0m   \[0m\[0m   \[0m\[0m   \[0m\r
-     and is not :                \r
-\r
-(p)lay, (d)iscard, inform Player (1), Player (3)? "
+expect -exact "(p)lay, (d)iscard, inform Player (1), Player (3)? "
 send -- "11"
 expect -exact " "
 send -- ""
 expect -exact " "
 send -- "31\r"
-expect -exact "31\r
-2\r
-\[3;J\[H\[2JPlayer 1 discarded card: \[46m 4 \[0m\r
-Player 2 told Player 3 about \[100m 1 \[0ms\r
-===========================iFduD=\r
-clocks:7, lives:2 \[41m 0 \[0m\[43m 0 \[0m\[42m 0 \[0m\[46m 0 \[0m\[7m 0 \[0m\r
-turns: 2, 34 remain in deck\r
-discard pile : \[46m4\[0m\r
-=================================\r
-updating game server...updated\r
-waiting for move. found new move(s) dd\r
-3\r
-\[3;J\[H\[2JPlayer 2 told Player 3 about \[100m 1 \[0ms\r
-Player 3 discarded card: \[46m 3 \[0m\r
-===========================iFduD=\r
-clocks:8, lives:2 \[41m 0 \[0m\[43m 0 \[0m\[42m 0 \[0m\[46m 0 \[0m\[7m 0 \[0m\r
-turns: 3, 33 remain in deck\r
-discard pile : \[46m4\[0m\[46m3\[0m\r
-=================================\r
-waiting for move. found new move(s) dd\r
-4\r
-\[3;J\[H\[2JPlayer 3 discarded card: \[46m 3 \[0m\r
-Player 1 discarded card: \[41m 2 \[0m\r
-===========================iFduD=\r
-clocks:8, lives:2 \[41m 0 \[0m\[43m 0 \[0m\[42m 0 \[0m\[46m 0 \[0m\[7m 0 \[0m\r
-turns: 4, 32 remain in deck\r
-discard pile : \[46m4\[0m\[46m3\[0m\[41m2\[0m\r
-=================================\r
-\r
-player 1's hand : \[41m 5 \[0m\[42m 1 \[0m\[41m 4 \[0m\[43m 2 \[0m\[7m 5 \[0m\r
-        we know : \[0m   \[0m\[0m   \[0m\[0m   \[0m\[0m   \[0m\[0m   \[0m\r
-     and is not :                \r
-\r
-      your hand : \[100m a \[0m\[100m b \[0m\[100m c \[0m\[100m d \[0m\[100m e \[0m\r
-        we know : \[0m   \[0m\[0m   \[0m\[0m   \[0m\[0m   \[0m\[0m   \[0m\r
-     and is not :                \r
-\r
-player 3's hand : \[42m 1 \[0m\[41m 1 \[0m\[43m 1 \[0m\[42m 4 \[0m\[7m 1 \[0m\r
-        we know : \[0m 1 \[0m\[0m 1 \[0m\[0m 1 \[0m\[0m   \[0m\[0m   \[0m\r
-     and is not :           1    \r
-\r
-(p)lay, (d)iscard, inform Player (1), Player (3)? "
+expect -exact "(p)lay, (d)iscard, inform Player (1), Player (3)? "
 send -- "dd\r"
-expect -exact "dd\r
-5\r
-\[3;J\[H\[2JPlayer 1 discarded card: \[41m 2 \[0m\r
-Player 2 discarded card: \[43m 3 \[0m\r
-===========================iFduD=\r
-clocks:8, lives:2 \[41m 0 \[0m\[43m 0 \[0m\[42m 0 \[0m\[46m 0 \[0m\[7m 0 \[0m\r
-turns: 5, 31 remain in deck\r
-discard pile : \[46m4\[0m\[46m3\[0m\[41m2\[0m\[43m3\[0m\r
-=================================\r
-updating game server...updated\r
-waiting for move. found new move(s) dd\r
-6\r
-\[3;J\[H\[2JPlayer 2 discarded card: \[43m 3 \[0m\r
-Player 3 discarded card: \[42m 4 \[0m\r
-===========================iFduD=\r
-clocks:8, lives:2 \[41m 0 \[0m\[43m 0 \[0m\[42m 0 \[0m\[46m 0 \[0m\[7m 0 \[0m\r
-turns: 6, 30 remain in deck\r
-discard pile : \[46m4\[0m\[46m3\[0m\[41m2\[0m\[43m3\[0m\[42m4\[0m\r
-=================================\r
-waiting for move. found new move(s) dd\r
-7\r
-\[3;J\[H\[2JPlayer 3 discarded card: \[42m 4 \[0m\r
-Player 1 discarded card: \[43m 2 \[0m\r
-===========================iFduD=\r
-clocks:8, lives:2 \[41m 0 \[0m\[43m 0 \[0m\[42m 0 \[0m\[46m 0 \[0m\[7m 0 \[0m\r
-turns: 7, 29 remain in deck\r
-discard pile : \[46m4\[0m\[46m3\[0m\[41m2\[0m\[43m3\[0m\[42m4\[0m\[43m2\[0m\r
-=================================\r
-\r
-player 1's hand : \[41m 5 \[0m\[42m 1 \[0m\[41m 4 \[0m\[7m 5 \[0m\[7m 1 \[0m\r
-        we know : \[0m   \[0m\[0m   \[0m\[0m   \[0m\[0m   \[0m\[0m   \[0m\r
-     and is not :                \r
-\r
-      your hand : \[100m a \[0m\[100m b \[0m\[100m c \[0m\[100m d \[0m\[100m e \[0m\r
-        we know : \[0m   \[0m\[0m   \[0m\[0m   \[0m\[0m   \[0m\[0m   \[0m\r
-     and is not :                \r
-\r
-player 3's hand : \[42m 1 \[0m\[41m 1 \[0m\[43m 1 \[0m\[7m 1 \[0m\[43m 1 \[0m\r
-        we know : \[0m 1 \[0m\[0m 1 \[0m\[0m 1 \[0m\[0m   \[0m\[0m   \[0m\r
-     and is not :                \r
-\r
-(p)lay, (d)iscard, inform Player (1), Player (3)? "
+expect -exact "(p)lay, (d)iscard, inform Player (1), Player (3)? "
 
 
 
@@ -396,162 +129,19 @@ spawn python hanabi.py FfBux
 match_max 100000
 expect -exact "Play (l)ocal or (r)emote game? "
 send -- "rt\r"
-expect -exact "rt\r
-What's your name? "
+expect -exact "What's your name? "
 send -- "Destroyer\r"
-expect -exact "Destroyer\r
-Choose game to join:\r
- - (0) join Test game for two players\r
- - (1) join Test game for three players\r
- - (n) create new game? "
+expect -exact "- (n) create new game? "
 send -- "n\r"
-expect -exact "n\r
-how many players (2-5)? "
+expect -exact "how many players (2-5)? "
 send -- "4\r"
-expect -exact "4\r
-waiting for players. player 2 joined\r
-0\r
-\[3;J\[H\[2J\r
-===========================FfBux=\r
-clocks:8, lives:2 \[41m 0 \[0m\[43m 0 \[0m\[42m 0 \[0m\[46m 0 \[0m\[7m 0 \[0m\r
-turns: 0, 30 remain in deck\r
-=================================\r
-\r
-      your hand : \[100m a \[0m\[100m b \[0m\[100m c \[0m\[100m d \[0m\[100m e \[0m\r
-        we know : \[0m   \[0m\[0m   \[0m\[0m   \[0m\[0m   \[0m\[0m   \[0m\r
-     and is not :                \r
-\r
-player 2's hand : \[46m 1 \[0m\[42m 4 \[0m\[41m 4 \[0m\[42m 1 \[0m\[7m 1 \[0m\r
-        we know : \[0m   \[0m\[0m   \[0m\[0m   \[0m\[0m   \[0m\[0m   \[0m\r
-     and is not :                \r
-\r
-player 3's hand : \[41m 2 \[0m\[41m 1 \[0m\[43m 1 \[0m\[42m 3 \[0m\[41m 1 \[0m\r
-        we know : \[0m   \[0m\[0m   \[0m\[0m   \[0m\[0m   \[0m\[0m   \[0m\r
-     and is not :                \r
-\r
-player 4's hand : \[46m 5 \[0m\[46m 1 \[0m\[43m 1 \[0m\[7m 2 \[0m\[7m 2 \[0m\r
-        we know : \[0m   \[0m\[0m   \[0m\[0m   \[0m\[0m   \[0m\[0m   \[0m\r
-     and is not :                \r
-\r
-(p)lay, (d)iscard, inform Player (2), Player (3), Player (4)? "
+expect -exact "(p)lay, (d)iscard, inform Player (2), Player (3), Player (4)? "
 send -- "21\r"
-expect -exact "21\r
-1\r
-\[3;J\[H\[2JPlayer 1 told Player 2 about \[100m 1 \[0ms\r
-===========================FfBux=\r
-clocks:7, lives:2 \[41m 0 \[0m\[43m 0 \[0m\[42m 0 \[0m\[46m 0 \[0m\[7m 0 \[0m\r
-turns: 1, 30 remain in deck\r
-=================================\r
-updating game server...updated\r
-waiting for move. found new move(s) dd\r
-2\r
-\[3;J\[H\[2JPlayer 1 told Player 2 about \[100m 1 \[0ms\r
-Player 2 discarded card: \[42m 1 \[0m\r
-===========================FfBux=\r
-clocks:8, lives:2 \[41m 0 \[0m\[43m 0 \[0m\[42m 0 \[0m\[46m 0 \[0m\[7m 0 \[0m\r
-turns: 2, 29 remain in deck\r
-discard pile : \[42m1\[0m\r
-=================================\r
-waiting for move. found new move(s) dd\r
-3\r
-\[3;J\[H\[2JPlayer 1 told Player 2 about \[100m 1 \[0ms\r
-Player 2 discarded card: \[42m 1 \[0m\r
-Player 3 discarded card: \[42m 3 \[0m\r
-===========================FfBux=\r
-clocks:8, lives:2 \[41m 0 \[0m\[43m 0 \[0m\[42m 0 \[0m\[46m 0 \[0m\[7m 0 \[0m\r
-turns: 3, 28 remain in deck\r
-discard pile : \[42m1\[0m\[42m3\[0m\r
-=================================\r
-waiting for move. found new move(s) dd\r
-4\r
-\[3;J\[H\[2JPlayer 2 discarded card: \[42m 1 \[0m\r
-Player 3 discarded card: \[42m 3 \[0m\r
-Player 4 discarded card: \[7m 2 \[0m\r
-===========================FfBux=\r
-clocks:8, lives:2 \[41m 0 \[0m\[43m 0 \[0m\[42m 0 \[0m\[46m 0 \[0m\[7m 0 \[0m\r
-turns: 4, 27 remain in deck\r
-discard pile : \[42m1\[0m\[42m3\[0m\[7m2\[0m\r
-=================================\r
-\r
-      your hand : \[100m a \[0m\[100m b \[0m\[100m c \[0m\[100m d \[0m\[100m e \[0m\r
-        we know : \[0m   \[0m\[0m   \[0m\[0m   \[0m\[0m   \[0m\[0m   \[0m\r
-     and is not :                \r
-\r
-player 2's hand : \[46m 1 \[0m\[42m 4 \[0m\[41m 4 \[0m\[7m 1 \[0m\[46m 4 \[0m\r
-        we know : \[0m 1 \[0m\[0m   \[0m\[0m   \[0m\[0m 1 \[0m\[0m   \[0m\r
-     and is not :     1  1       \r
-\r
-player 3's hand : \[41m 2 \[0m\[41m 1 \[0m\[43m 1 \[0m\[41m 1 \[0m\[43m 2 \[0m\r
-        we know : \[0m   \[0m\[0m   \[0m\[0m   \[0m\[0m   \[0m\[0m   \[0m\r
-     and is not :                \r
-\r
-player 4's hand : \[46m 5 \[0m\[46m 1 \[0m\[43m 1 \[0m\[7m 2 \[0m\[42m 1 \[0m\r
-        we know : \[0m   \[0m\[0m   \[0m\[0m   \[0m\[0m   \[0m\[0m   \[0m\r
-     and is not :                \r
-\r
-(p)lay, (d)iscard, inform Player (2), Player (3), Player (4)? "
+expect -exact "(p)lay, (d)iscard, inform Player (2), Player (3), Player (4)? "
 send -- "dd"
 expect -exact " "
 send -- ""
 expect -exact " "
 send -- "pe\r"
-expect -exact "pe\r
-5\r
-\[3;J\[H\[2JPlayer 3 discarded card: \[42m 3 \[0m\r
-Player 4 discarded card: \[7m 2 \[0m\r
-Player 1 played card: \[46m 3 \[0m\r
-===========================FfBux=\r
-clocks:8, lives:1 \[41m 0 \[0m\[43m 0 \[0m\[42m 0 \[0m\[46m 0 \[0m\[7m 0 \[0m\r
-turns: 5, 26 remain in deck\r
-discard pile : \[42m1\[0m\[42m3\[0m\[7m2\[0m\[46m3\[0m\r
-=================================\r
-updating game server...updated\r
-waiting for move. found new move(s) dd\r
-6\r
-\[3;J\[H\[2JPlayer 4 discarded card: \[7m 2 \[0m\r
-Player 1 played card: \[46m 3 \[0m\r
-Player 2 discarded card: \[7m 1 \[0m\r
-===========================FfBux=\r
-clocks:8, lives:1 \[41m 0 \[0m\[43m 0 \[0m\[42m 0 \[0m\[46m 0 \[0m\[7m 0 \[0m\r
-turns: 6, 25 remain in deck\r
-discard pile : \[42m1\[0m\[42m3\[0m\[7m2\[0m\[46m3\[0m\[7m1\[0m\r
-=================================\r
-waiting for move. found new move(s) dd\r
-7\r
-\[3;J\[H\[2JPlayer 1 played card: \[46m 3 \[0m\r
-Player 2 discarded card: \[7m 1 \[0m\r
-Player 3 discarded card: \[41m 1 \[0m\r
-===========================FfBux=\r
-clocks:8, lives:1 \[41m 0 \[0m\[43m 0 \[0m\[42m 0 \[0m\[46m 0 \[0m\[7m 0 \[0m\r
-turns: 7, 24 remain in deck\r
-discard pile : \[42m1\[0m\[42m3\[0m\[7m2\[0m\[46m3\[0m\[7m1\[0m\[41m1\[0m\r
-=================================\r
-waiting for move. found new move(s) dd\r
-8\r
-\[3;J\[H\[2JPlayer 2 discarded card: \[7m 1 \[0m\r
-Player 3 discarded card: \[41m 1 \[0m\r
-Player 4 discarded card: \[7m 2 \[0m\r
-===========================FfBux=\r
-clocks:8, lives:1 \[41m 0 \[0m\[43m 0 \[0m\[42m 0 \[0m\[46m 0 \[0m\[7m 0 \[0m\r
-turns: 8, 23 remain in deck\r
-discard pile : \[42m1\[0m\[42m3\[0m\[7m2\[0m\[46m3\[0m\[7m1\[0m\[41m1\[0m\[7m2\[0m\r
-=================================\r
-\r
-      your hand : \[100m a \[0m\[100m b \[0m\[100m c \[0m\[100m d \[0m\[100m e \[0m\r
-        we know : \[0m   \[0m\[0m   \[0m\[0m   \[0m\[0m   \[0m\[0m   \[0m\r
-     and is not :                \r
-\r
-player 2's hand : \[46m 1 \[0m\[42m 4 \[0m\[41m 4 \[0m\[46m 4 \[0m\[43m 4 \[0m\r
-        we know : \[0m 1 \[0m\[0m   \[0m\[0m   \[0m\[0m   \[0m\[0m   \[0m\r
-     and is not :     1  1       \r
-\r
-player 3's hand : \[41m 2 \[0m\[41m 1 \[0m\[43m 1 \[0m\[43m 2 \[0m\[7m 3 \[0m\r
-        we know : \[0m   \[0m\[0m   \[0m\[0m   \[0m\[0m   \[0m\[0m   \[0m\r
-     and is not :                \r
-\r
-player 4's hand : \[46m 5 \[0m\[46m 1 \[0m\[43m 1 \[0m\[42m 1 \[0m\[42m 2 \[0m\r
-        we know : \[0m   \[0m\[0m   \[0m\[0m   \[0m\[0m   \[0m\[0m   \[0m\r
-     and is not :                \r
-\r
-(p)lay, (d)iscard, inform Player (2), Player (3), Player (4)? "
+expect -exact "(p)lay, (d)iscard, inform Player (2), Player (3), Player (4)? "
 
