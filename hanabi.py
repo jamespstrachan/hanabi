@@ -20,12 +20,9 @@ def main():
     move_descriptions = []
     while hanabi.is_game_over == False:
         player_id = hanabi.current_player_id()
-        print(hanabi.turn)
         turn = hanabi.turn
 
         if server and player_id != server.player_id:
-            os.system('clear')
-            print(render_table(hanabi, move_descriptions[1-hanabi.num_players:]))
             if prev_player_id == server.player_id: # submit only moves we just made locally
                 server.submit_move("{}{}".format(move,submove))
             move = server.await_move()
