@@ -22,9 +22,9 @@ def main():
         turn = hanabi.turn
 
         if server and player_id != server.player_id:
+            print_player_view(hanabi, move_descriptions, server.player_id)
             if prev_player_id == server.player_id: # submit only moves we just made locally
                 server.submit_move("{}{}".format(move,submove))
-            print_player_view(hanabi, move_descriptions, prev_player_id)
             move = server.await_move()
         else:
             if not server and not input_error:
