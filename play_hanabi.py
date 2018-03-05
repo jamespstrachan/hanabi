@@ -99,10 +99,11 @@ def main():
         prev_player_id = player_id
         move_descriptions.append("Player {} {}".format(player_id+1, action_description))
 
-    os.system('clear')
-    print("\nGame over, {}\n".format(hanabi.end_message()))
-    print(textwrap.fill('Score of {} means "{}"'.format(hanabi.score(), hanabi.score_meaning()), 33))
     print_player_view(hanabi, move_descriptions, False)
+    print(render_colour("white", " Game over, {} ".format(hanabi.end_message())))
+    print()
+    print(textwrap.fill('Score of {} means "{}"'.format(hanabi.score(), hanabi.score_meaning()), 33))
+    print()
 
 def start_remote_game(seed, server_class):
     player_name = input("What's your name? ")
@@ -155,6 +156,9 @@ def print_player_view(hanabi, move_descriptions, player_id):
     print("\n".join(render_hand(hanabi, i, i==player_id) for i in range(hanabi.num_players)))
 
 def render_cards(list, width = 3):
+    return ''.join(render_colour(l[0], "{: ^{width}}".format(str(l[1]), width=str(width))) for l in list)
+
+def render_colour(colour, string):
     op_colours = {
         "red":    '\033[41m',
         "yellow": '\033[43m',
@@ -164,8 +168,7 @@ def render_cards(list, width = 3):
         "grey":   '\033[100m',
         "end":    '\033[0m',
     }
-    card_template = "{}{: ^"+str(width)+"}{}"
-    return ''.join(card_template.format(op_colours[l[0]], str(l[1]), op_colours['end']) for l in list)
+    return "{}{}{}".format(op_colours[colour], str(string), op_colours['end'])
 
 def render_table(hanabi, move_descriptions = []):
     op = move_descriptions if len(move_descriptions) else ['']
