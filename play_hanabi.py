@@ -110,7 +110,7 @@ def start_remote_game(seed, server_class):
     check_credentials()
     import credentials
 
-    server = server_class('https://api.github.com/gists', credentials)
+    server = server_class('https://api.github.com/gists', credentials, auto_test="--auto" in argv)
 
     game_list = server.list_games()
     print("Choose game to join:")
@@ -148,6 +148,11 @@ def check_credentials():
         fh.write("\n".join(lines))
         fh.close()
         print("Setup complete\n")
+
+def print_player_view(hanabi, move_descriptions, player_id):
+    os.system('clear')
+    print(render_table(hanabi, move_descriptions[1-hanabi.num_players:])+"\n")
+    print("\n".join(render_hand(hanabi, i, i==player_id) for i in range(hanabi.num_players)))
 
 def render_cards(list, width = 3):
     op_colours = {

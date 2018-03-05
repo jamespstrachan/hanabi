@@ -141,7 +141,8 @@ class HanabiServer():
     """Makes connection and manages comms with a remote server where game file is stored"""
     newgame_prefix = "New "
 
-    def __init__(self, url, credentials ):
+    def __init__(self, url, credentials, auto_test=False):
+        assert not auto_test, "Running in automated testing mode, shouldn't be accessing real remote servers"
         self.url = "{}/{}".format(url, credentials.tag)
         self.credentials = credentials
         self.headers = {"Authorization": "token {}".format(credentials.token)}
@@ -264,8 +265,9 @@ class MockHanabiServer():
        and always, always discards the fourth card in any hand
     """
     new_game_files = ['Test game for two players', 'Test game for three players']
-    def __init__(self, url, credentials ):
-        pass
+    def __init__(self, url, credentials, auto_test=False):
+        # Don't add fake delay if being tested by script
+        self.time_delay = 0 if auto_test else 1
 
     def list_games(self):
         return [f for f in self.new_game_files]
@@ -281,21 +283,21 @@ class MockHanabiServer():
 
     def await_players(self):
         print("waiting for players", end='', flush=True)
-        sleep(1)
+        sleep(self.time_delay)
         print(".", end='', flush=True)
-        sleep(1)
+        sleep(self.time_delay)
         print(" player 2 joined")
 
     def submit_move(self, move):
         print("updating game server...", end='', flush=True)
-        sleep(1)
+        sleep(self.time_delay)
         print("updated")
 
     def await_move(self):
         print("waiting for move", end='', flush=True)
-        sleep(1)
+        sleep(self.time_delay)
         print(".", end='', flush=True)
-        sleep(1)
+        sleep(self.time_delay)
         move = 'dd'
         print(" found new move(s) {}".format(move))
         return move

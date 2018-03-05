@@ -47,7 +47,7 @@ if {$force_conservative} {
 
 #####################################################  2 player local
 set timeout -1
-spawn python play_hanabi.py FfBux
+spawn python play_hanabi.py FfBux --auto
 match_max 100000
 expect -exact "Play (l)ocal or (r)emote game? "
 send -- "l\r"
@@ -102,7 +102,7 @@ send -- "\n"
 #####################################################  3 player remote-mock as player 2
 
 set timeout -1
-spawn python play_hanabi.py FfBux
+spawn python play_hanabi.py FfBux --auto
 match_max 100000
 expect -exact "Play (l)ocal or (r)emote game? "
 send -- "rt\r"
@@ -125,7 +125,7 @@ expect -exact "(p)lay, (d)iscard, inform Player (1), Player (3)? "
 #####################################################  4 player remote-mock as player 1
 
 set timeout -1
-spawn python play_hanabi.py FfBux
+spawn python play_hanabi.py FfBux --auto
 match_max 100000
 expect -exact "Play (l)ocal or (r)emote game? "
 send -- "rt\r"
