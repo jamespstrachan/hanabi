@@ -24,6 +24,7 @@ def main():
         if server and player_id != server.player_id:
             if prev_player_id == server.player_id: # submit only moves we just made locally
                 server.submit_move("{}{}".format(move,submove))
+            print_player_view(hanabi, move_descriptions, prev_player_id)
             move = server.await_move()
         else:
             if not server and not input_error:
@@ -31,11 +32,7 @@ def main():
                 print(render_table(hanabi, move_descriptions[1-hanabi.num_players:]))
                 input("Player {} press enter".format(player_id+1))
 
-            os.system('clear')
-            print(render_table(hanabi, move_descriptions[1-hanabi.num_players:])+"\n")
-
-            for i in range(hanabi.num_players):
-                print(render_hand(hanabi, i, i==player_id))
+            print_player_view(hanabi, move_descriptions, player_id)
 
             if hanabi.num_players == 2:
                 inform_string = ", (i)nform"
@@ -105,8 +102,7 @@ def main():
     os.system('clear')
     print("\nGame over, {}\n".format(hanabi.end_message()))
     print(textwrap.fill('Score of {} means "{}"'.format(hanabi.score(), hanabi.score_meaning()), 33))
-    print(render_table(hanabi))
-    print("\n".join(render_hand(hanabi, i, False) for i in range(hanabi.num_players)))
+    print_player_view(hanabi, move_descriptions, False)
 
 def start_remote_game(seed, server_class):
     player_name = input("What's your name? ")
