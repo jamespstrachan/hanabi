@@ -1,16 +1,16 @@
 import os, textwrap
 from sys import argv
-from hanabi import HanabiGame, HanabiServer, MockHanabiServer
+from hanabi import HanabiGame, HanabiSession, HanabiGistServer, MockHanabiServer
 
 def main():
     seed = argv[1] if len(argv)>1 else None
-    server = None
+    session = None
 
     game_type = input("Play (l)ocal or (r)emote game? ")
-    if game_type == 'r':
-        hanabi, server = start_remote_game(seed, HanabiServer)
-    elif game_type == 'rt': # remote game test
-        hanabi, server = start_remote_game(seed, MockHanabiServer)
+    if game_type[0] == 'r':
+        server_class = MockHanabiServer if game_type == 'rt' else HanabiGistServer
+        session      = start_remote_game(seed, server_class)
+        hanabi       = session.hanabi
     else:
         hanabi = HanabiGame(2, seed)
 
@@ -21,13 +21,14 @@ def main():
         player_id = hanabi.current_player_id()
         turn = hanabi.turn
 
-        if server and player_id != server.player_id:
-            print_player_view(hanabi, move_descriptions, server.player_id)
-            if prev_player_id == server.player_id: # submit only moves we just made locally
-                server.submit_move("{}{}".format(move,submove))
-            move = server.await_move()
+        if session and player_id != session.player_id:
+            print_player_view(hanabi, move_descriptions, session.player_id)
+            if prev_player_id == session.player_id: # submit only moves we just made locally
+                #todo - conside moving this to end of loop
+                session.submit_move("{}{}".format(move,submove))
+            move = session.await_move()
         else:
-            if not server and not input_error:
+            if not session and not input_error:
                 os.system('clear')
                 print(render_table(hanabi, move_descriptions[1-hanabi.num_players:]))
                 input("Player {} press enter".format(player_id+1))
@@ -102,6 +103,7 @@ def main():
         prev_player_id = player_id
         move_descriptions.append("Player {} {}".format(player_id+1, action_description))
 
+    #todo - send final move to server for remote game
     print_player_view(hanabi, move_descriptions, False)
     print(render_colour("white", " Game over, {} ".format(hanabi.end_message())))
     print()
@@ -114,9 +116,10 @@ def start_remote_game(seed, server_class):
     check_credentials()
     import credentials
 
-    server = server_class('https://api.github.com/gists', credentials, auto_test="--auto" in argv)
+    server = server_class('https://api.github.com/gists', credentials, is_test="--auto" in argv)
+    session = HanabiSession(server)
 
-    game_list = server.request_game_list(new=True)
+    game_list = session.request_game_list(new=True)
     print("Choose game to join:")
     print('\n'.join(" - ({}) join {}".format(i, f) for i,f in enumerate(game_list)) or "\n( no current games exist )\n")
     chosen_game = input(" - (n) create new game? ")
@@ -124,13 +127,13 @@ def start_remote_game(seed, server_class):
     if chosen_game == 'n':
         num_players = input("how many players (2-5)? ")
         hanabi      = HanabiGame(int(num_players), seed)
-        server.new_game(hanabi, player_name)
-        server.await_players()
+        session.new_game(hanabi, player_name)
+        session.await_players()
     else:
-        hanabi = server.join_game(game_list[int(chosen_game)], player_name)
-        server.await_players()
+        session.join_game(game_list[int(chosen_game)], player_name)
+        session.await_players()
 
-    return hanabi, server
+    return session
 
 def check_credentials():
     """ Loads credentials if present or requests from user
