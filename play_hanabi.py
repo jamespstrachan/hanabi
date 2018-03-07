@@ -15,17 +15,12 @@ def main():
         hanabi = HanabiGame(2, seed)
 
     input_error, move = None, None
-    prev_player_id = -1
     move_descriptions = []
     while hanabi.is_game_over() == False:
         player_id = hanabi.current_player_id()
-        turn = hanabi.turn
 
         if session and player_id != session.player_id:
             print_player_view(hanabi, move_descriptions, session.player_id)
-            if prev_player_id == session.player_id: # submit only moves we just made locally
-                #todo - conside moving this to end of loop
-                session.submit_move("{}{}".format(move,submove))
             move = session.await_move()
         else:
             if not session and not input_error:
@@ -100,10 +95,12 @@ def main():
         #todo - split out input step (yielding eg "da" or "21") from doing step and put
         #       in function to allow consistent "do" across local and remote moves
 
-        prev_player_id = player_id
         move_descriptions.append("Player {} {}".format(player_id+1, action_description))
 
-    #todo - send final move to server for remote game
+        if session and player_id == session.player_id:
+            print_player_view(hanabi, move_descriptions, player_id)
+            session.submit_move("{}{}".format(move,submove))
+
     print_player_view(hanabi, move_descriptions, False)
     print(render_colour("white", " Game over, {} ".format(hanabi.end_message())))
     print()

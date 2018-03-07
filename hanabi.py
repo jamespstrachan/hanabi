@@ -176,7 +176,6 @@ class HanabiSession():
         while True:
             count_checks += 1
             print(".", end='', flush=True)
-            print("awaiting "+self.game_title)
             if self.game_title in self.request_game_list():
                 game_content = self.server.request_game(self.game_title)
                 if len(game_content['players']) == self.hanabi.num_players:
