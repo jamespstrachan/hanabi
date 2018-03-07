@@ -42,7 +42,7 @@ class HanabiGame():
 
     def end_message(self):
         # todo - perhaps these should be enumerated as codes for something else to translate and render?
-        if self.lives == 0:
+        if self.lives < 0:
             return "you ran out of lives"
         if self.turn == self.final_turn:
             return "you used all the cards"
