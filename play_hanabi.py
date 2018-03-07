@@ -76,7 +76,7 @@ def main():
                 continue
             hand_id        = int(move) - 1
             colours        = hanabi.possible_info(hand_id, type='colour')
-            decorated_cols = ['('+c[0] + ')' + c[1:] for c in colours]
+            decorated_cols = ['({}){}'.format(c[0], c[1:]) for c in colours]
             numbers        = hanabi.possible_info(hand_id, type='number')
             while True:
                 if (submove.isdigit() and int(submove) in numbers) \
@@ -96,6 +96,9 @@ def main():
             input_error = 'invalid option "{}", choose from:'.format(move)
             continue
 
+        #todo - split out input step (yielding eg "da" or "21") from doing step and put
+        #       in function to allow consistent "do" across local and remote moves
+
         prev_player_id = player_id
         move_descriptions.append("Player {} {}".format(player_id+1, action_description))
 
@@ -113,7 +116,7 @@ def start_remote_game(seed, server_class):
 
     server = server_class('https://api.github.com/gists', credentials, auto_test="--auto" in argv)
 
-    game_list = server.list_games()
+    game_list = server.request_game_list(new=True)
     print("Choose game to join:")
     print('\n'.join(" - ({}) join {}".format(i, f) for i,f in enumerate(game_list)) or "\n( no current games exist )\n")
     chosen_game = input(" - (n) create new game? ")
@@ -124,7 +127,7 @@ def start_remote_game(seed, server_class):
         server.new_game(hanabi, player_name)
         server.await_players()
     else:
-        hanabi = server.join_game(int(chosen_game), player_name)
+        hanabi = server.join_game(game_list[int(chosen_game)], player_name)
         server.await_players()
 
     return hanabi, server

@@ -145,78 +145,81 @@ class HanabiServer():
         assert not auto_test, "Running in automated testing mode, shouldn't be accessing real remote servers"
         self.url = "{}/{}".format(url, credentials.tag)
         self.credentials = credentials
-        self.headers = {"Authorization": "token {}".format(credentials.token)}
-
-    def list_games(self):
-        response_json   = self.request()
-        self.new_game_files = [file for filename,file in response_json['files'].items() if filename.find(self.newgame_prefix) == 0]
-        return [f['filename'] for f in self.new_game_files]
+        self.headers     = {"Authorization": "token {}".format(credentials.token)}
+        self.game_title  = None
 
     def new_game(self, hanabi, creator_name):
         self.hanabi     = hanabi
         self.player_id  = 0
+        game_content = {
+                           "seed":        hanabi.seed,
+                           "num_players": hanabi.num_players,
+                           "players":     [creator_name],
+                           "moves":       []
+                        }
         self.game_title = "game by {} on {}".format(creator_name, datetime.datetime.now().strftime('%c'))
-        content         = json.dumps({
-                                       "seed":        hanabi.seed,
-                                       "num_players": hanabi.num_players,
-                                       "players":     [creator_name],
-                                       "moves":       []
-                                    }, indent=4)
-        file_json       = {"files":{(self.newgame_prefix+self.game_title):{"content":content}}}
-        response_json   = self.request("POST", file_json)
+        self.request_game(game_content, is_new_game=True)
 
-    def join_game(self, game_idx, player_name):
-        game_file       = self.new_game_files[game_idx]
-        game_content    = json.loads(game_file['content'])
+    def join_game(self, game_title, player_name):
+        self.game_title = game_title
+        game_content    = self.request_game()
+        print(game_content, flush=True)
         self.player_id  = len(game_content['players'])
         game_content['players'].append(player_name)
 
-        filename = game_file['filename']
-        # When the last player needed joins we update the gamefile's name to show it's full
-        self.game_title = game_file['filename'][len(self.newgame_prefix):]
-        if len(game_content['players']) == game_content['num_players']:
-            filename = self.game_title
-
-        file_json = {
-                    "files":{
-                        game_file['filename']:{
-                            "filename": filename,
-                            "content": json.dumps(game_content, indent=4),
-                            }
-                        }
-                    }
-
-        response_json = self.request("PATCH", file_json)
+        self.request_game(game_content)
 
         self.hanabi = HanabiGame(game_content['num_players'], game_content['seed'])
         return self.hanabi
 
-    def request(self, verb = 'GET', payload = None):
-        # todo: make this function contain all github-specific code, just return our chosen game json
+    def request_game_list(self, new=False):
+        all_filenames = dict.keys(requests.get(self.url, headers=self.headers).json()['files'])
+        return [f for f in all_filenames if f.find(self.newgame_prefix) == (0 if new else -1)]
+
+    def request_game(self, updated_content=None, is_new_game=False ):
+        payload = None
+        if updated_content:
+            new_filename = None
+            if is_new_game:
+                old_filename = self.newgame_prefix + self.game_title
+            elif self.game_title.find(self.newgame_prefix) == 0: # if we're joining a new game
+                old_filename    = self.game_title
+                self.game_title = old_filename[len(self.newgame_prefix):]
+                # When the last player needed joins we update the gamefile's name to show it's full
+                if len(updated_content['players']) == updated_content['num_players']:
+                    new_filename = self.game_title
+            else:
+                old_filename = self.game_title
+
+            payload = {
+                    "files":{
+                        old_filename:{
+                            "filename": new_filename if new_filename else old_filename,
+                            # todo sort order https://stackoverflow.com/questions/18871217/how-to-custom-sort-a-list-of-dict-to-use-in-json-dumps
+                            "content": json.dumps(updated_content, indent=4),
+                            }
+                        }
+                    }
+
+        verb     = "POST" if is_new_game else ("PATCH" if updated_content else "GET")
         response = requests.request(verb, self.url, headers=self.headers, json=payload)
         if response.status_code != 200:
             print(json.dumps(response.json(), indent=4))
             exit()
-        return response.json()
 
-    def parse_content(self, content_json):
-        return json.loads(content_json['files'][self.game_title]['content'])
+        if verb == "GET":
+            return json.loads(response.json()['files'][self.game_title]['content'])
 
     def await_players(self):
         print("waiting for players", end='', flush=True)
-        sleep(10)
-        player_count = self.player_id + 1
+        if self.player_id < self.hanabi.num_players - 1: # if we're not the final joiner
+            sleep(10)
         count_checks = 0
         while True:
             count_checks += 1
             print(".", end='', flush=True)
-            response_json = self.request()
-            if self.game_title in response_json['files']:
-                game_content = self.parse_content(response_json)
-                print("{} of {},".format(len(game_content['players']), self.hanabi.num_players), end='', flush=True)
-                if len(game_content['players']) > player_count:
-                    print(" player {} joined".format(game_content['players'][player_count]), flush=True)
-                    player_count = len(game_content['players'])
+            if self.game_title in self.request_game_list():
+                game_content = self.request_game()
                 if len(game_content['players']) == self.hanabi.num_players:
                     # todo re-issue player_id based on finished order to avoid race condition
                     return
@@ -225,20 +228,11 @@ class HanabiServer():
                 print("resumed", end='', flush=True)
             sleep(3)
 
-    def set_game_state(self, game_content):
-        file_json = {"files":{self.game_title:{"content":json.dumps(game_content, indent=4)}}}
-        response_json = self.request("PATCH", file_json)
-        return self.parse_content(response_json)
-
-    def get_game_state(self):
-        response_json = self.request("GET")
-        return self.parse_content(response_json)
-
     def submit_move(self, move):
         print("updating game server...", end='', flush=True)
-        game_content = self.get_game_state()
+        game_content = self.request_game()
         game_content['moves'].append(move)
-        self.set_game_state(game_content)
+        self.request_game(game_content)
         print("updated")
 
     def await_move(self):
@@ -248,12 +242,14 @@ class HanabiServer():
         while True:
             count_checks += 1
             print(".", end='', flush=True)
-            game_content = self.get_game_state()
+            game_content = self.request_game()
             if len(game_content['moves']) > self.hanabi.turn:
                 moves = game_content['moves']
                 move  = moves[-1]
                 print(" found new move {}".format(move))
                 return move
+                # todo make always return array of moves to allow for multiple moves
+                # to come through at once in remote game
             turns_to_wait = (self.player_id - self.hanabi.current_player_id()) % self.hanabi.num_players
             if count_checks % 20 == 19:
                 input("\npaused, press enter to resume")
@@ -264,20 +260,20 @@ class MockHanabiServer():
     """Pretends to connect to a game server, lets player set up or join a fake game
        and always, always discards the fourth card in any hand
     """
-    new_game_files = ['Test game for two players', 'Test game for three players']
+    mock_filenames = ['Test game for two players', 'Test game for three players']
     def __init__(self, url, credentials, auto_test=False):
         # Don't add fake delay if being tested by script
         self.time_delay = 0 if auto_test else 1
 
-    def list_games(self):
-        return [f for f in self.new_game_files]
+    def request_game_list(self, new=False):
+        return self.mock_filenames
 
     def new_game(self, hanabi, creator_name):
         self.player_id = 0
         self.hanabi = hanabi
 
-    def join_game(self, game_idx, player_name):
-        self.hanabi = HanabiGame(game_idx + 2, 'iFduD') # Hardcoded seed to allow consistent performance for testing
+    def join_game(self, game_title, player_name):
+        self.hanabi = HanabiGame(self.mock_filenames.index(game_title) + 2, 'iFduD') # Hardcoded seed to allow consistent performance for testing
         self.player_id = 1
         return self.hanabi
 
@@ -285,8 +281,6 @@ class MockHanabiServer():
         print("waiting for players", end='', flush=True)
         sleep(self.time_delay)
         print(".", end='', flush=True)
-        sleep(self.time_delay)
-        print(" player 2 joined")
 
     def submit_move(self, move):
         print("updating game server...", end='', flush=True)
