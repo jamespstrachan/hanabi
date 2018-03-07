@@ -35,7 +35,7 @@ class HanabiGame():
         random.seed(self.seed)
         random.shuffle(self.deck)
         [self.replenish_hand(i) for _ in range(5) for i,_ in enumerate(self.hands)]
-        ##self.deck = self.deck[-3:]## helpful to shorten deck for testing
+        #self.deck = self.deck[-3:]## helpful to shorten deck for testing
 
     def is_game_over(self):
         return bool(self.end_message())
@@ -97,6 +97,7 @@ class HanabiGame():
         self.turn += 1
 
     def inform(self, hand_id, info):
+        assert self.clocks > 0, "can't give info without clocks"
         for card in self.hands[hand_id]:
             hand_info = self.info[hand_id][str(card)]
             if card[0] == info:
@@ -179,7 +180,6 @@ class HanabiSession():
             if self.game_title in self.request_game_list():
                 game_content = self.server.request_game(self.game_title)
                 if len(game_content['players']) == self.hanabi.num_players:
-                    # todo re-issue player_id based on finished order to avoid race condition
                     return
             if count_checks % 20 == 19:
                 input("\npaused, press enter to resume")
@@ -202,12 +202,9 @@ class HanabiSession():
             print(".", end='', flush=True)
             game_content = self.server.request_game(self.game_title)
             if len(game_content['moves']) > self.hanabi.turn:
-                moves = game_content['moves']
-                move  = moves[-1]
-                print(" found new move {}".format(move))
-                return move
-                # todo make always return array of moves to allow for multiple moves
-                # to come through at once in remote game
+                moves = game_content['moves'][self.hanabi.turn:]
+                print(" found new moves {}".format(moves))
+                return moves
             turns_to_wait = (self.player_id - self.hanabi.current_player_id()) % self.hanabi.num_players
             if count_checks % 20 == 19:
                 input("\npaused, press enter to resume")
@@ -298,7 +295,7 @@ class MockHanabiServer():
         else:
             game = self.games[game_title]
             if updated_content:
-                updated_content['moves'].extend(['dd' for _ in range(game['num_players']-1)])
+                updated_content['moves'].extend(['da','db','dc','dd','de'][0:game['num_players']-1])
                 game = updated_content
         self.sleep(1)
         return game

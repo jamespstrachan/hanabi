@@ -14,92 +14,30 @@ def main():
     else:
         hanabi = HanabiGame(2, seed)
 
-    input_error, move = None, None
     move_descriptions = []
+    moves             = []
     while hanabi.is_game_over() == False:
         player_id = hanabi.current_player_id()
 
         if session and player_id != session.player_id:
             print_player_view(hanabi, move_descriptions, session.player_id)
-            move = session.await_move()
+            if len(moves) == 0:
+                moves = session.await_move()
+            move = moves.pop(0)
         else:
-            if not session and not input_error:
+            if not session:
                 os.system('clear')
                 print(render_table(hanabi, move_descriptions[1-hanabi.num_players:]))
                 input("Player {} press enter".format(player_id+1))
-
             print_player_view(hanabi, move_descriptions, player_id)
+            move = get_local_move(hanabi, player_id)
 
-            if hanabi.num_players == 2:
-                inform_string = ", (i)nform"
-            else:
-                player_strings = ["Player ("+str(p+1)+")" for p in range(hanabi.num_players) \
-                                                              if p != player_id]
-                inform_string = ", inform {}".format(', '.join(player_strings)) \
-                                if hanabi.clocks > 0 else ""
-            if input_error:
-                print(input_error)
-                input_error = None
-            move = input("(p)lay, (d)iscard{}? ".format(inform_string))
-
-        submove = ''
-        if len(move) == 2:
-            move, submove = move
-
-        if move == 'i' and hanabi.num_players == 2:
-        # make "i" move default to other player in 2 player game
-            move = str(2-player_id)
-
-        if move in ['p','d']:
-            while True:
-                if submove:
-                    hand_index = "abcde".find(submove)
-                    if hand_index > -1:
-                        break
-                submove = input("which card to use, a-e? ")
-
-            if move == 'p':
-                hanabi.play(hand_index)
-                action_description = "played"
-            else:
-                hanabi.discard(hand_index)
-                action_description = "discarded"
-            action_description += " card: {}".format(render_cards([hanabi.last_card]))
-
-        elif move.isdigit() and int(move) in range(1, hanabi.num_players+1) and int(move) != player_id+1:
-            if hanabi.clocks < 1:
-                input_error = "no clocks left, can't inform this turn"
-                continue
-            hand_id        = int(move) - 1
-            colours        = hanabi.possible_info(hand_id, type='colour')
-            decorated_cols = ['({}){}'.format(c[0], c[1:]) for c in colours]
-            numbers        = hanabi.possible_info(hand_id, type='number')
-            while True:
-                if (submove.isdigit() and int(submove) in numbers) \
-                    or submove in [x[0] for x in colours]:
-                    new_info = submove
-                    if not new_info.isdigit():
-                        # turn "g" into "green", for example
-                        new_info = [c for c in hanabi.game_colours if c[0] == submove][0]
-                    break
-                submove = input("inform of {}, {}? ".format(', '.join(map(str, numbers)), ', '.join(sorted(decorated_cols))))
-
-            hanabi.inform(hand_id, new_info)
-            example_card = ("grey", new_info) if new_info.isdigit() \
-                           else (new_info, " ")
-            action_description = "told Player {} about {}s".format(hand_id+1, render_cards([example_card]))
-        else:
-            input_error = 'invalid option "{}", choose from:'.format(move)
-            continue
-
-        #todo - split out input step (yielding eg "da" or "21") from doing step and put
-        #       in function to allow consistent "do" across local and remote moves
-
-        move_descriptions.append("Player {} {}".format(player_id+1, action_description))
+        description = play_move(hanabi, move)
+        move_descriptions.append("Player {} {}".format(player_id+1, description))
 
         if session and player_id == session.player_id:
             print_player_view(hanabi, move_descriptions, player_id)
-            session.submit_move("{}{}".format(move,submove))
+            session.submit_move(move)
 
     print_player_view(hanabi, move_descriptions, False)
     print(render_colour("white", " Game over, {} ".format(hanabi.end_message())))
@@ -107,7 +45,76 @@ def main():
     print(textwrap.fill('Score of {} means "{}"'.format(hanabi.score(), hanabi.score_meaning()), 33))
     print()
 
+def get_local_move(hanabi, player_id):
+    """ returns a move string eg '21' or 'dd' based on the current hanabi turn
+    """
+    input_error = None
+    while True:
+        if input_error:
+            print(input_error)
+            input_error = None
+        if hanabi.num_players == 2:
+            inform_string = ", (i)nform"
+        else:
+            player_strings = ["Player ("+str(p+1)+")" for p in range(hanabi.num_players) \
+                                                          if p != player_id]
+            inform_string = ", inform {}".format(', '.join(player_strings)) \
+                            if hanabi.clocks > 0 else ""
+        move_a = input("(p)lay, (d)iscard{}? ".format(inform_string))
+
+        move_b = 'x' # initialise to an invalid input
+        if len(move_a) == 2:
+            move_a, move_b = move_a
+
+        if move_a == 'i' and hanabi.num_players == 2: # make "i" move default to other player in 2 player game
+            move_a = str(2-player_id)
+
+        if move_a in ['p','d']:
+            while move_b not in "abcde":
+                move_b = input("which card to use, a-e? ")
+
+        elif move_a.isdigit() \
+                and int(move_a) in range(1, hanabi.num_players+1) \
+                and int(move_a) != player_id+1 \
+                and hanabi.clocks > 0:
+            hand_id        = int(move_a) - 1
+            numbers        = [str(x) for x in hanabi.possible_info(hand_id, type='number')]
+            colours        = hanabi.possible_info(hand_id, type='colour')
+            decorated_cols = ['({}){}'.format(c[0], c[1:]) for c in colours]
+            while move_b not in numbers + [x[0] for x in colours]:
+                move_b = input("inform of {}, {}? ".format(', '.join(map(str, numbers)), ', '.join(sorted(decorated_cols))))
+        else:
+            input_error = 'invalid option "{}", choose from:'.format(move_a)
+            continue
+        break
+    return move_a+move_b
+
+def play_move(hanabi, move):
+    """ Applies supplied move to the supplied hanabi game, returning a descriptive string
+    """
+    if move[0].isdigit():
+        hand_id = int(move[0]) - 1
+        info = move[1]
+        if not info.isdigit():   # turn "g" into "green", for example
+            info = [c for c in hanabi.game_colours if c[0] == info][0]
+        hanabi.inform(hand_id, info)
+        example_card = ("grey", info) if info.isdigit() \
+                       else (info, " ")
+        action_description = "told Player {} about {}s".format(hand_id+1, render_cards([example_card]))
+    else:
+        hand_index = "abcde".find(move[1])
+        if move[0] == 'p':
+            hanabi.play(hand_index)
+            action_description = "played"
+        else:
+            hanabi.discard(hand_index)
+            action_description = "discarded"
+        action_description += " card: {}".format(render_cards([hanabi.last_card]))
+    return action_description
+
 def start_remote_game(seed, server_class):
+    """ Prompts player to create or join a remote game, returns a session object for it
+    """
     player_name = input("What's your name? ")
 
     check_credentials()
@@ -156,7 +163,7 @@ def check_credentials():
 def print_player_view(hanabi, move_descriptions, player_id):
     os.system('clear')
     print(render_table(hanabi, move_descriptions[1-hanabi.num_players:])+"\n")
-    print("\n".join(render_hand(hanabi, i, i==player_id) for i in range(hanabi.num_players)))
+    print("\n".join(render_hand(hanabi, i, False if player_id is False else i==player_id) for i in range(hanabi.num_players)))
 
 def render_cards(list, width = 3):
     return ''.join(render_colour(l[0], "{: ^{width}}".format(str(l[1]), width=str(width))) for l in list)
