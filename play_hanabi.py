@@ -14,6 +14,10 @@ def main():
     else:
         hanabi = HanabiGame(2, seed)
 
+    move_descriptions = game_loop(hanabi, session)
+    print_end_game(hanabi, move_descriptions)
+
+def game_loop(hanabi, session):
     move_descriptions = []
     moves             = []
     while hanabi.is_game_over() == False:
@@ -38,7 +42,9 @@ def main():
         if session and player_id == session.player_id:
             print_player_view(hanabi, move_descriptions, player_id)
             session.submit_move(move)
+    return move_descriptions
 
+def print_end_game(hanabi, move_descriptions):
     print_player_view(hanabi, move_descriptions, False)
     print(render_colour("white", " Game over, {} ".format(hanabi.end_message())))
     print()
