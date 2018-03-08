@@ -59,31 +59,31 @@ class HanabiBot():
 2 x HanabiBot playing, starting seed aaaaa for 1000 reps
  0 :
  1 :
- 2 :   4 ██ eg:oNwRC
- 3 :  13 ███████ eg:eeN8A
- 4 :  28 ███████████████ eg:zurMH
- 5 :  46 ██████████████████████████ eg:JcN1G
- 6 :  48 ███████████████████████████ eg:8Ngr1
- 7 :  76 ███████████████████████████████████████████ eg:6V2cx
- 8 :  88 ██████████████████████████████████████████████████ eg:mJTzE
- 9 :  70 ███████████████████████████████████████ eg:rdSfc
-10 :  75 ██████████████████████████████████████████ eg:iC6uH
-11 :  75 ██████████████████████████████████████████ eg:wY5AT
-12 :  63 ███████████████████████████████████ eg:azSGL
-13 :  62 ███████████████████████████████████ eg:fjZ4r
-14 :  48 ███████████████████████████ eg:zCZ9e
-15 :  53 ██████████████████████████████ eg:jXZoJ
-16 :  35 ███████████████████ eg:aaQLk
-17 :  30 █████████████████ eg:l644V
-18 :  29 ████████████████ eg:3v8bx
-19 :  44 █████████████████████████ eg:J64bG
-20 :  36 ████████████████████ eg:ns4lz
-21 :  35 ███████████████████ eg:gg0Oy
-22 :  21 ███████████ eg:QrnGr
-23 :  15 ████████ eg:wjsZg
-24 :   6 ███ eg:NwZJb
+ 2 :
+ 3 :   4 ██ eg:6ckzC
+ 4 :   9 ██████ eg:avz1G
+ 5 :  30 █████████████████████ eg:pn44V
+ 6 :  34 ████████████████████████ eg:WbSoO
+ 7 :  43 ███████████████████████████████ eg:E2n1n
+ 8 :  62 ████████████████████████████████████████████ eg:wY5AT
+ 9 :  68 █████████████████████████████████████████████████ eg:wbbF4
+10 :  68 █████████████████████████████████████████████████ eg:MMwQH
+11 :  60 ███████████████████████████████████████████ eg:aNbJ3
+12 :  66 ███████████████████████████████████████████████ eg:h0s3j
+13 :  55 ███████████████████████████████████████ eg:Gunq3
+14 :  57 █████████████████████████████████████████ eg:n17va
+15 :  45 ████████████████████████████████ eg:9xT6D
+16 :  59 ██████████████████████████████████████████ eg:HWYk0
+17 :  55 ███████████████████████████████████████ eg:aDC2u
+18 :  55 ███████████████████████████████████████ eg:Lgntj
+19 :  57 █████████████████████████████████████████ eg:Vyyud
+20 :  69 ██████████████████████████████████████████████████ eg:qDYpA
+21 :  59 ██████████████████████████████████████████ eg:QfuLP
+22 :  27 ███████████████████ eg:rWT9G
+23 :  16 ███████████ eg:8XfTx
+24 :   2 █ eg:mccm4
 25 :
-median: 11.0, mean: 12.0, stdev: 5.2
+median: 14.0, mean: 13.7, stdev: 5.1
     """
     def get_move(self, hanabi):
         #todo - remove dependancy on hanabi class, strictly receive what
@@ -97,17 +97,23 @@ median: 11.0, mean: 12.0, stdev: 5.2
         if hanabi.clocks > 0 and not will_play_card:
             could_play_card = self.could_play(next_hand, playable_cards)
             if could_play_card:
-                print("next could play {} - inform".format(could_play_card))
+                self.print_thought("next could play", could_play_card, 'inform')
                 return self.format_move(next_hand, 'inform', could_play_card, next_player_id, next_info)
             else:
                 discard_card = self.will_discard(hanabi, next_hand, next_info)
                 if self.is_required(hanabi, discard_card):
-                    print("next will discard {} - inform".format(discard_card))
+                    self.print_thought("next will discard", discard_card, 'inform')
                     # todo - should give info to make positive discard possible, else...
                     return self.format_move(next_hand, 'inform', discard_card, next_player_id, next_info)
-                print("next will discard {} - ok".format(discard_card))
-        else:
-            print("next will play {} - ok".format(will_play_card))
+                self.print_thought("next will discard", discard_card, 'ok')
+        elif will_play_card:
+            if self.could_play([will_play_card], playable_cards):
+                self.print_thought("next will play", will_play_card, 'ok')
+            elif hanabi.clocks > 0:
+                self.print_thought("next will play", will_play_card, 'inform')
+                return self.format_move(next_hand, 'inform', will_play_card, next_player_id, next_info)
+            else:
+                self.print_thought("next will play", will_play_card, "can't correct")
 
         hand      = hanabi.current_hand()
         info      = hanabi.info[hanabi.current_player_id()]
@@ -116,6 +122,9 @@ median: 11.0, mean: 12.0, stdev: 5.2
             return self.format_move(hand, 'play', play_card)
         discard_card = self.will_discard(hanabi, hand, info)
         return self.format_move(hand, 'discard', discard_card)
+
+    def print_thought(self, prediction, card, opinion):
+        print("{} {} - {}".format(prediction, self.simplify_cards([card])[0], opinion) )
 
     def find_card_idx(self, hand, card):
         for i, c in enumerate(hand):
