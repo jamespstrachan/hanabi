@@ -96,8 +96,8 @@ class HanabiBot():
                 if pc[1] == known_card[1] and pc[0] not in card_info['not_colour'] \
                 or pc[0] == known_card[0] and pc[1] not in card_info['not_number']:
                     cards_i_can_play.setdefault(known_card[0], set()).add(card)
-                    cards_i_can_play.setdefault(known_card[1], set()).add(card)
-        for attr in cards_i_can_play:
+                    cards_i_can_play.setdefault(str(known_card[1]), set()).add(card)
+        for attr in sorted(cards_i_can_play):
             if attr in ['gray', -1]:
                 continue
             if len(cards_i_can_play[attr]) == 1:
@@ -131,7 +131,7 @@ class HanabiBot():
         return hand[0] # if we have info on all, throw first
 
     def could_play(self, hand, playable_cards):
-        next_can_play = list(set(playable_cards).intersection(set(self.simplify_cards(hand))))
+        next_can_play = sorted(list(set(playable_cards).intersection(set(self.simplify_cards(hand)))))
         if next_can_play:
             return self.desimplify_card(next_can_play[0], hand)
 
