@@ -71,8 +71,17 @@ class HanabiGame():
     def current_player_id(self):
         return self.turn % self.num_players
 
+    def next_player_id(self):
+        return (self.current_player_id()+1)%self.num_players
+
     def current_hand(self):
         return self.hands[self.current_player_id()]
+
+    def next_hand(self):
+        return self.hands[self.next_player_id()]
+
+    def playable_cards(self):
+        return [(pile[0][0], pile[-1][1]+1) for pile in self.table if pile[-1][1] !=  5]
 
     def possible_info(self, hand_id, type='colour'):
         return set([card[0 if type=='colour' else 1] for card in self.hands[hand_id]])
@@ -104,7 +113,7 @@ class HanabiGame():
                 hand_info['colour'] = info
                 hand_info['not_colour'] = set()
             elif info.isdigit() and card[1] == int(info):
-                hand_info['number'] = info
+                hand_info['number'] = int(info)
                 hand_info['not_number'] = set()
             elif info.isdigit() and not hand_info['number']:
                 nn = hand_info['not_number']

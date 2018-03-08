@@ -1,23 +1,59 @@
-import os, textwrap
+import os, textwrap, sys, random, inspect
+from io import StringIO
 from sys import argv
 from hanabi import HanabiGame, HanabiSession, HanabiGistServer, MockHanabiServer
+import hanabibot
 
 def main():
     seed = argv[1] if len(argv)>1 else None
-    session = None
+    session, bot_class = None, None
 
-    game_type = input("Play (l)ocal or (r)emote game? ")
-    if game_type[0] == 'r':
+    game_type = input("Play (l)ocal, (r)emote or (b)ot game? ")
+    if game_type and game_type[0] == 'r':
         server_class = MockHanabiServer if game_type == 'rt' else HanabiGistServer
         session      = start_remote_game(seed, server_class)
         hanabi       = session.hanabi
+    elif game_type == 'b':
+        reps        = int(input("how many reps? "))
+        bot_names   = [c[0] for c in inspect.getmembers(hanabibot) if c[0][-3:] == "Bot"]
+        print("\n".join(["{} = {}".format(i,bc) for i,bc in enumerate(bot_names)]))
+        bot_name    = bot_names[int(input("Which bot to use? "))]
+        bot_class   = getattr(hanabibot, bot_name)
+        num_players = int(input("How many instances of {} (2-5)? ".format(bot_name)))
+        if(reps > 1):
+            bot_game(bot_class, num_players, seed, reps)
+        hanabi = HanabiGame(num_players, seed)
     else:
         hanabi = HanabiGame(2, seed)
 
-    move_descriptions = game_loop(hanabi, session)
+    move_descriptions = game_loop(hanabi, session, bot_class)
     print_end_game(hanabi, move_descriptions)
 
-def game_loop(hanabi, session):
+def bot_game(bot_class, num_players, seed, reps):
+    scores = {}
+    print("{} x {} playing, starting seed {} for {} reps".format(num_players, bot_class.__name__, seed, reps))
+    sys.stdout = mystdout = StringIO()
+    for i in range(reps):
+        hanabi = HanabiGame(num_players, seed)
+        while hanabi.is_game_over() == False:
+            bot = bot_class()
+            play_move(hanabi, bot.get_move(hanabi))
+        scores[seed] = hanabi.score()
+        seed = hanabi.random_seed()
+    sys.stdout = sys.__stdout__
+    freq_score = []
+    max_width  = 50
+    for i in range(26):
+        freq_score.append(len([x for x in scores if scores[x]==i]))
+    for i in range(26):
+        bar_width = max_width*freq_score[i]//max(freq_score)
+        bar_text  = ' {} eg: {}'.format(freq_score[i], ", ".join([x for x in scores if scores[x]==i]))
+        bar_text  = "{: <{}}".format(bar_text[0:bar_width], bar_width)
+        bar       = render_colour('white', bar_text)
+        print("{: >2} : {}".format(i, bar))
+    exit()
+
+def game_loop(hanabi, session, bot_class=None):
     move_descriptions = []
     moves             = []
     while hanabi.is_game_over() == False:
@@ -32,9 +68,15 @@ def game_loop(hanabi, session):
             if not session:
                 os.system('clear')
                 print(render_table(hanabi, move_descriptions[1-hanabi.num_players:]))
-                input("Player {} press enter".format(player_id+1))
+                if not bot_class:
+                    input("Player {} press enter".format(player_id+1))
             print_player_view(hanabi, move_descriptions, player_id)
-            move = get_local_move(hanabi, player_id)
+
+            if bot_class:
+                move = bot_class().get_move(hanabi)
+                input("Bot thinks '{}', press enter to play...".format(move))
+            else:
+                move = get_local_move(hanabi, player_id)
 
         description = play_move(hanabi, move)
         move_descriptions.append("Player {} {}".format(player_id+1, description))

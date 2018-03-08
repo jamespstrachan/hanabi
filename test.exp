@@ -49,7 +49,7 @@ if {$force_conservative} {
 set timeout -1
 spawn python play_hanabi.py FfBux --auto
 match_max 100000
-expect -exact "Play (l)ocal or (r)emote game? "
+expect -exact "Play (l)ocal, (r)emote or (b)ot game?"
 send -- "l\r"
 expect -exact "Player 1 press enter"
 send -- "\r"
@@ -90,21 +90,12 @@ send -- "a\r"
 expect -exact "Player 1 press enter"
 send -- "\n"
 
-
-
-
-
-
-
-
-
-
 #####################################################  3 player remote-mock as player 3
 
 set timeout -1
 spawn python play_hanabi.py FfBux --auto
 match_max 100000
-expect -exact "Play (l)ocal or (r)emote game? "
+expect -exact "Play (l)ocal, (r)emote or (b)ot game?"
 send -- "rt\r"
 expect -exact "What's your name? "
 send -- "James\r"
@@ -120,14 +111,12 @@ expect -exact "(p)lay, (d)iscard, inform Player (1), Player (2)? "
 send -- "dd\r"
 expect -exact "(p)lay, (d)iscard, inform Player (1), Player (2)? "
 
-
-
 #####################################################  4 player remote-mock as player 1
 
 set timeout -1
 spawn python play_hanabi.py FfBux --auto
 match_max 100000
-expect -exact "Play (l)ocal or (r)emote game? "
+expect -exact "Play (l)ocal, (r)emote or (b)ot game?"
 send -- "rt\r"
 expect -exact "What's your name? "
 send -- "Destroyer\r"
@@ -144,4 +133,19 @@ send -- ""
 expect -exact " "
 send -- "pe\r"
 expect -exact "(p)lay, (d)iscard, inform Player (2), Player (3), Player (4)? "
+
+#####################################################  A 10 cycle bot test
+
+set timeout -1
+spawn python play_hanabi.py aaaaa
+match_max 100000
+expect -exact "Play (l)ocal, (r)emote or (b)ot game? "
+send -- "b\r"
+expect -exact "how many reps? "
+send -- "10\r"
+expect -exact "Which bot to use? "
+send -- "0\r"
+expect -exact "How many instances of HanabiBot (2-5)? "
+send -- "2\r"
+expect eof
 
