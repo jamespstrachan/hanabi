@@ -31,7 +31,7 @@ def main():
     print_end_game(hanabi, move_descriptions)
 
 def bot_game(bot_class, num_players, seed, reps):
-    scores = {}
+    scores = []
     print("{} x {} playing, starting seed {} for {} reps".format(num_players, bot_class.__name__, seed, reps))
     sys.stdout = mystdout = StringIO()
     for i in range(reps):
@@ -39,20 +39,20 @@ def bot_game(bot_class, num_players, seed, reps):
         while hanabi.is_game_over() == False:
             bot = bot_class()
             play_move(hanabi, bot.get_move(hanabi))
-        scores[seed] = hanabi.score()
+        scores.append((seed, hanabi.score()))
         seed = hanabi.random_seed()
     sys.stdout = sys.__stdout__
     freq_score = []
     max_width  = 50
     for i in range(26):
-        freq_score.append(len([x for x in scores if scores[x]==i]))
+        freq_score.append(len([s for s in scores if s[1]==i]))
     for i in range(26):
         bar_width = max_width*freq_score[i]//max(freq_score)
-        examples  = [x for x in scores if scores[x]==i]
+        examples  = [s[0] for s in scores if s[1]==i]
         example   = ("eg:"+examples[0]) if examples else ''
         bar_text  = '{: >3} {} {}'.format(freq_score[i] if freq_score[i] else '', "█"*bar_width, example)
         print("{: >2} : {}".format(i, bar_text))
-    scores_list = list(scores.values())
+    scores_list = [s[1] for s in scores]
     print("median: {}, mean: {:.1f}, stdev: {:.1f}".format(median(scores_list), \
                                                      mean(scores_list), \
                                                     stdev(scores_list),))
