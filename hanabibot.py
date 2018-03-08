@@ -59,36 +59,38 @@ class HanabiBot():
 2 x HanabiBot playing, starting seed aaaaa for 1000 reps
  0 :
  1 :
- 2 :
- 3 :   4 ██ eg:6ckzC
- 4 :   9 ██████ eg:avz1G
- 5 :  30 █████████████████████ eg:pn44V
- 6 :  34 ████████████████████████ eg:WbSoO
- 7 :  43 ███████████████████████████████ eg:E2n1n
- 8 :  62 ████████████████████████████████████████████ eg:wY5AT
- 9 :  68 █████████████████████████████████████████████████ eg:wbbF4
-10 :  68 █████████████████████████████████████████████████ eg:MMwQH
-11 :  60 ███████████████████████████████████████████ eg:aNbJ3
-12 :  66 ███████████████████████████████████████████████ eg:h0s3j
-13 :  55 ███████████████████████████████████████ eg:Gunq3
-14 :  57 █████████████████████████████████████████ eg:n17va
-15 :  45 ████████████████████████████████ eg:9xT6D
-16 :  59 ██████████████████████████████████████████ eg:HWYk0
-17 :  55 ███████████████████████████████████████ eg:aDC2u
-18 :  55 ███████████████████████████████████████ eg:Lgntj
-19 :  57 █████████████████████████████████████████ eg:Vyyud
-20 :  69 ██████████████████████████████████████████████████ eg:qDYpA
-21 :  59 ██████████████████████████████████████████ eg:QfuLP
-22 :  27 ███████████████████ eg:rWT9G
-23 :  16 ███████████ eg:8XfTx
-24 :   2 █ eg:mccm4
-25 :
-median: 14.0, mean: 13.7, stdev: 5.1
+ 2 :   3 █ eg:YCntt
+ 3 :   2  eg:NAgbn
+ 4 :   8 ██ eg:PW2Jr
+ 5 :   9 ███ eg:NENG8
+ 6 :  13 ████ eg:ao656
+ 7 :  13 ████ eg:qsrxi
+ 8 :  11 ████ eg:sul4f
+ 9 :  21 ███████ eg:BiImP
+10 :  25 █████████ eg:lZyvy
+11 :  21 ███████ eg:aaaaa
+12 :  25 █████████ eg:HWntT
+13 :  27 ██████████ eg:l644V
+14 :  31 ███████████ eg:K7hlq
+15 :  35 █████████████ eg:BtxQx
+16 :  51 ███████████████████ eg:iGzW5
+17 :  48 █████████████████ eg:dGIaO
+18 :  85 ███████████████████████████████ eg:ZGS4Z
+19 : 116 ███████████████████████████████████████████ eg:Xrs3O
+20 : 134 ██████████████████████████████████████████████████ eg:Or3sD
+21 : 116 ███████████████████████████████████████████ eg:FRXZS
+22 : 101 █████████████████████████████████████ eg:oKFnu
+23 :  66 ████████████████████████ eg:zAxhN
+24 :  31 ███████████ eg:nd27K
+25 :   8 ██ eg:KF4bJ
+median: 19.0, mean: 17.8, stdev: 4.7
     """
     def get_move(self, hanabi):
         #todo - remove dependancy on hanabi class, strictly receive what
         #       player can see to avoid accidental reliance on hidden info
         playable_cards = hanabi.playable_cards()
+        my_hand        = hanabi.current_hand()
+        my_info        = hanabi.info[hanabi.current_player_id()]
         next_player_id = hanabi.next_player_id()
         next_hand      = hanabi.next_hand()
         next_info      = hanabi.info[next_player_id]
@@ -96,7 +98,8 @@ median: 14.0, mean: 13.7, stdev: 5.1
         will_play_card = self.will_play(hanabi, next_hand, next_info, playable_cards)
         if hanabi.clocks > 0 and not will_play_card:
             could_play_card = self.could_play(next_hand, playable_cards)
-            if could_play_card:
+            i_will_play_card = self.will_play(hanabi, my_hand, my_info, playable_cards)
+            if could_play_card and (not i_will_play_card or i_will_play_card[1] != could_play_card[1]):
                 self.print_thought("next could play", could_play_card, 'inform')
                 return self.format_move(next_hand, 'inform', could_play_card, next_player_id, next_info)
             else:
@@ -115,13 +118,12 @@ median: 14.0, mean: 13.7, stdev: 5.1
             else:
                 self.print_thought("next will play", will_play_card, "can't correct")
 
-        hand      = hanabi.current_hand()
-        info      = hanabi.info[hanabi.current_player_id()]
-        play_card = self.will_play(hanabi,hand, info, playable_cards)
+
+        play_card = self.will_play(hanabi, my_hand, my_info, playable_cards)
         if play_card:
-            return self.format_move(hand, 'play', play_card)
-        discard_card = self.will_discard(hanabi, hand, info)
-        return self.format_move(hand, 'discard', discard_card)
+            return self.format_move(my_hand, 'play', play_card)
+        discard_card = self.will_discard(hanabi, my_hand, my_info)
+        return self.format_move(my_hand, 'discard', discard_card)
 
     def print_thought(self, prediction, card, opinion):
         print("{} {} - {}".format(prediction, self.simplify_cards([card])[0], opinion) )
@@ -144,31 +146,30 @@ median: 14.0, mean: 13.7, stdev: 5.1
 
     def will_play(self, hanabi, hand, hand_info, playable_cards):
         possible_cards = [c for c in playable_cards if self.count_in_play(hanabi, c)]
-        cards_i_can_play = {}
-        for card in reversed(hand):
-            card_info = hand_info[card]
+        short_hand = []
+        oldest_unknown_idx = None
+        for idx,card in enumerate(hand):
+            card_info  = hand_info[card]
             known_card = (card_info['colour'] if card_info['colour'] else 'gray', \
                               card_info['number'] if card_info['number'] else -1)
 
+            if not oldest_unknown_idx and known_card == ('gray',-1):
+                oldest_unknown_idx = idx
+
             if known_card in possible_cards:
                 return card
+            elif card_info['colour'] and card_info['number']:
+                continue #if it's fully known and not playable, don't play it
 
             if self.can_discard(hanabi, card, card_info):
                 continue # don't consider playing a card we know can be disposed of
 
-            for pc in possible_cards:
-                if self.equivalent(pc, known_card, by='number') and pc[0] not in card_info['not_colour']:
-                    cards_i_can_play.setdefault(known_card[0], set()).add(card)
-                if self.equivalent(pc, known_card, by='colour') and pc[1] not in card_info['not_number']:
-                    cards_i_can_play.setdefault(str(known_card[1]), set()).add(card)
-                #todo - these appear swapped - if it matches number we make it candidate for colour
-                #       I don't know why, but it's significantly more effective, find out why!
-
-        for attr in sorted(cards_i_can_play):
-            if attr in ['gray', -1]:
-                continue
-            if len(cards_i_can_play[attr]) == 1:
-                return list(cards_i_can_play[attr])[0]
+            if   card_info['colour'] and self.is_playable(hanabi, colour=card_info['colour']) \
+              or card_info['number'] and self.is_playable(hanabi, number=card_info['number']):
+                if oldest_unknown_idx is not None:
+                    short_hand.append(card)
+        if len(short_hand):
+            return short_hand[-1]
 
     def can_discard(self, hanabi, card, card_info):
         if card_info['colour'] and card_info['number'] \
@@ -208,6 +209,13 @@ median: 14.0, mean: 13.7, stdev: 5.1
         if colour and len([c for c in hanabi.playable_cards() if c[0] == colour]) == 0:
             return True  # if this card's pile is complete, discard
         #todo - counting discard pile to tell if this card must be
+        return False
+
+    def is_playable(self, hanabi, colour=None, number=None):
+        if number and len([c for c in hanabi.playable_cards() if c[1] == number]):
+            return True
+        if colour and len([c for c in hanabi.playable_cards() if c[0] == colour]):
+            return True
         return False
 
     def is_required(self, hanabi, card):
