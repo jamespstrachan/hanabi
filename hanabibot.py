@@ -2,6 +2,38 @@
 import random
 
 class HanabiRandomBot():
+    """ Strategy:
+        Choose a random move from all possible moves, play it
+
+2 x HanabiRandomBot playing, starting seed aaaaa for 1000 reps
+ 0 : 353 ██████████████████████████████████████████████████ eg:LLGW9
+ 1 : 308 ███████████████████████████████████████████ eg:Xw9dX
+ 2 : 187 ██████████████████████████ eg:0CXrT
+ 3 : 103 ██████████████ eg:dLRnq
+ 4 :  30 ████ eg:zP0pR
+ 5 :  14 █ eg:yRkuP
+ 6 :   4  eg:IqNhD
+ 7 :   1  eg:rxGHi
+ 8 :
+ 9 :
+10 :
+11 :
+12 :
+13 :
+14 :
+15 :
+16 :
+17 :
+18 :
+19 :
+20 :
+21 :
+22 :
+23 :
+24 :
+25 :
+median: 1.0, mean: 1.2, stdev: 1.2
+    """
     def get_move(self, hanabi):
         moves = [a+b for a in 'pd' for b in 'abcde']
         if hanabi.clocks:
@@ -23,6 +55,35 @@ class HanabiBot():
         you have something useful to play?
             yes = do useful >>
             no  = throw away oldest, least known
+
+2 x HanabiBot playing, starting seed aaaaa for 1000 reps
+ 0 :
+ 1 :
+ 2 :   4 ██ eg:oNwRC
+ 3 :  13 ███████ eg:eeN8A
+ 4 :  28 ███████████████ eg:zurMH
+ 5 :  46 ██████████████████████████ eg:JcN1G
+ 6 :  48 ███████████████████████████ eg:8Ngr1
+ 7 :  76 ███████████████████████████████████████████ eg:6V2cx
+ 8 :  88 ██████████████████████████████████████████████████ eg:mJTzE
+ 9 :  70 ███████████████████████████████████████ eg:rdSfc
+10 :  75 ██████████████████████████████████████████ eg:iC6uH
+11 :  75 ██████████████████████████████████████████ eg:wY5AT
+12 :  63 ███████████████████████████████████ eg:azSGL
+13 :  62 ███████████████████████████████████ eg:fjZ4r
+14 :  48 ███████████████████████████ eg:zCZ9e
+15 :  53 ██████████████████████████████ eg:jXZoJ
+16 :  35 ███████████████████ eg:aaQLk
+17 :  30 █████████████████ eg:l644V
+18 :  29 ████████████████ eg:3v8bx
+19 :  44 █████████████████████████ eg:J64bG
+20 :  36 ████████████████████ eg:ns4lz
+21 :  35 ███████████████████ eg:gg0Oy
+22 :  21 ███████████ eg:QrnGr
+23 :  15 ████████ eg:wjsZg
+24 :   6 ███ eg:NwZJb
+25 :
+median: 11.0, mean: 12.0, stdev: 5.2
     """
     def get_move(self, hanabi):
         #todo - remove dependancy on hanabi class, strictly receive what

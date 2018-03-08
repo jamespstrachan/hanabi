@@ -1,0 +1,15 @@
+# Benchmarking script for bots
+
+set timeout -1
+spawn python play_hanabi.py aaaaa
+match_max 100000
+expect -exact "Play (l)ocal, (r)emote or (b)ot game? "
+send -- "b\r"
+expect -exact "how many reps? "
+send -- "1000\r"
+expect -exact "Which bot to use? "
+expect_user -re "(.*)\n"
+send -- "$expect_out(1,string)\r"
+expect -re "How many instances of \\w+ \\(2-5\\)\\? "
+send -- "2\r"
+expect eof

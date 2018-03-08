@@ -1,6 +1,7 @@
 import os, textwrap, sys, random, inspect
 from io import StringIO
 from sys import argv
+from statistics import mean, median, stdev
 from hanabi import HanabiGame, HanabiSession, HanabiGistServer, MockHanabiServer
 import hanabibot
 
@@ -47,10 +48,14 @@ def bot_game(bot_class, num_players, seed, reps):
         freq_score.append(len([x for x in scores if scores[x]==i]))
     for i in range(26):
         bar_width = max_width*freq_score[i]//max(freq_score)
-        bar_text  = ' {} eg: {}'.format(freq_score[i], ", ".join([x for x in scores if scores[x]==i]))
-        bar_text  = "{: <{}}".format(bar_text[0:bar_width], bar_width)
-        bar       = render_colour('white', bar_text)
-        print("{: >2} : {}".format(i, bar))
+        examples  = [x for x in scores if scores[x]==i]
+        example   = ("eg:"+examples[0]) if examples else ''
+        bar_text  = '{: >3} {} {}'.format(freq_score[i] if freq_score[i] else '', "█"*bar_width, example)
+        print("{: >2} : {}".format(i, bar_text))
+    scores_list = list(scores.values())
+    print("median: {}, mean: {:.1f}, stdev: {:.1f}".format(median(scores_list), \
+                                                     mean(scores_list), \
+                                                    stdev(scores_list),))
     exit()
 
 def game_loop(hanabi, session, bot_class=None):
