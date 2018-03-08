@@ -145,7 +145,7 @@ median: 14.0, mean: 13.7, stdev: 5.1
     def will_play(self, hanabi, hand, hand_info, playable_cards):
         possible_cards = [c for c in playable_cards if self.count_in_play(hanabi, c)]
         cards_i_can_play = {}
-        for idx, card in reversed(list(enumerate(hand))):
+        for card in reversed(hand):
             #todo - investigate removing str() call on cards being used as keys
             card_info = hand_info[str(card)]
             known_card = (card_info['colour'] if card_info['colour'] else 'gray', \
@@ -155,18 +155,16 @@ median: 14.0, mean: 13.7, stdev: 5.1
                 return card
 
             if self.can_discard(hanabi, card, card_info):
-                ##print("ignoring {}".format(card))
                 continue # don't consider playing a card we know can be disposed of
 
             for pc in possible_cards:
-                ##print("comparing {} with {}".format(pc, known_card))
-                if self.equivalent(pc, known_card):
-                    return card # immediately play an exact card
-            for pc in possible_cards:
-                if pc[1] == known_card[1] and pc[0] not in card_info['not_colour'] \
-                or pc[0] == known_card[0] and pc[1] not in card_info['not_number']:
+                if self.equivalent(pc, known_card, by='number') and pc[0] not in card_info['not_colour']:
                     cards_i_can_play.setdefault(known_card[0], set()).add(card)
+                if self.equivalent(pc, known_card, by='colour') and pc[1] not in card_info['not_number']:
                     cards_i_can_play.setdefault(str(known_card[1]), set()).add(card)
+                #todo - these appear swapped - if it matches number we make it candidate for colour
+                #       I don't know why, but it's significantly more effective, find out why!
+
         for attr in sorted(cards_i_can_play):
             if attr in ['gray', -1]:
                 continue
@@ -230,8 +228,12 @@ median: 14.0, mean: 13.7, stdev: 5.1
         num_discarded = len([c for c in hanabi.discard_pile if self.equivalent(c, card)])
         return hanabi.scarcity(card[1]) - num_discarded
 
-    def equivalent(self, card1, card2):
-        return card1[0]==card2[0] and card1[1]==card2[1]
+    def equivalent(self, card1, card2, by='all'):
+        eq = {}
+        eq['colour'] = card1[0]==card2[0]
+        eq['number'] = card1[1]==card2[1]
+        eq['all']    = eq['colour'] and eq['number']
+        return eq[by]
 
     def simplify_cards(self, cards):
         """ strips serial number from cards, so [('red', 2, 1)] becomes [('red', 2)]
