@@ -139,15 +139,14 @@ median: 14.0, mean: 13.7, stdev: 5.1
             return 'p'+hand_letter
         elif action == 'inform':
             # tells number or, if already known, tells colour
-            attr = 0 if next_info[str(card)]['number'] else 1
+            attr = 0 if next_info[card]['number'] else 1
             return '{}{}'.format(next_player_id+1, str(card[attr])[0])
 
     def will_play(self, hanabi, hand, hand_info, playable_cards):
         possible_cards = [c for c in playable_cards if self.count_in_play(hanabi, c)]
         cards_i_can_play = {}
         for card in reversed(hand):
-            #todo - investigate removing str() call on cards being used as keys
-            card_info = hand_info[str(card)]
+            card_info = hand_info[card]
             known_card = (card_info['colour'] if card_info['colour'] else 'gray', \
                               card_info['number'] if card_info['number'] else -1)
 
@@ -188,12 +187,12 @@ median: 14.0, mean: 13.7, stdev: 5.1
 
     def will_discard(self, hanabi, hand, hand_info):
         for idx, card in enumerate(hand):
-            if self.can_discard(hanabi, card, hand_info[str(card)]):
+            if self.can_discard(hanabi, card, hand_info[card]):
                 return card
 
         #todo - prioritise discard by card we have least "is-not" info about
         for idx, card in enumerate(hand):
-            card_info = hand_info[str(card)]
+            card_info = hand_info[card]
             if not card_info['colour'] and not card_info['number']:
                 return card
         return hand[0] # if we have info on all, throw first

@@ -254,15 +254,15 @@ def render_hand(hanabi, player_id, is_current_player = False):
 def render_info(hanabi, id):
     not_colour_row, not_number_row = '', ''
     for card in hanabi.hands[id]:
-        info = hanabi.info[id][str(card)]
-        if str(card) in hanabi.info[id]:
+        info = hanabi.info[id][card]
+        if card in hanabi.info[id]:
             not_colour_row += ''.join(render_cards([(x,' ')],width=1) for x in sorted(info['not_colour']))
             not_colour_row += (3-len(info['not_colour'])) * " "
             not_number_row += "{:<3}".format(''.join(str(x) for x in sorted(info['not_number'])))
 
     obscured_hand = []
     for card in hanabi.hands[id]:
-        card_info = hanabi.info[id][str(card)]
+        card_info = hanabi.info[id][card]
         obscured_hand.append((card_info['colour'] if card_info['colour'] else 'end', \
                               card_info['number'] if card_info['number'] else ' '))
     return "     we know is : {}".format(render_cards(obscured_hand)) + \

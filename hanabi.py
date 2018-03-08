@@ -108,7 +108,7 @@ class HanabiGame():
     def inform(self, hand_id, info):
         assert self.clocks > 0, "can't give info without clocks"
         for card in self.hands[hand_id]:
-            hand_info = self.info[hand_id][str(card)]
+            hand_info = self.info[hand_id][card]
             if card[0] == info:
                 hand_info['colour'] = info
                 hand_info['not_colour'] = set()
@@ -143,7 +143,7 @@ class HanabiGame():
         if len(self.deck):
             card = self.deck.pop()
             self.hands[player_id].append(card)
-            self.info[player_id][str(card)] = {'colour':None, 'number':None, 'not_number':set(), 'not_colour':set()}
+            self.info[player_id][card] = {'colour':None, 'number':None, 'not_number':set(), 'not_colour':set()}
         elif not self.final_turn:
             self.final_turn = self.turn + self.num_players
 
