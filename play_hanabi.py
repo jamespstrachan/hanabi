@@ -1,6 +1,7 @@
 import os, textwrap, sys, random, inspect
 from io import StringIO
 from sys import argv
+from time import sleep
 from statistics import mean, median, stdev
 from hanabi import HanabiGame, HanabiSession, HanabiGistServer, MockHanabiServer
 import hanabibot
@@ -33,17 +34,26 @@ def main():
 def bot_game(bot_class, num_players, seed, reps):
     scores = []
     print("{} x {} playing, starting seed {} for {} reps".format(num_players, bot_class.__name__, seed, reps))
-    sys.stdout = mystdout = StringIO()
     for i in range(reps):
+        sys.stdout = mystdout = StringIO()
         hanabi = HanabiGame(num_players, seed)
         while hanabi.is_game_over() == False:
             bot = bot_class()
             play_move(hanabi, bot.get_move(hanabi))
         scores.append((seed, hanabi.score()))
         seed = hanabi.random_seed()
-    sys.stdout = sys.__stdout__
+        sys.stdout = sys.__stdout__
+
+    # os.system('clear') ## these two lines can be uncommented if the render block is moved into the above loop
+    # print("{} x {} playing, starting seed {} for {} reps".format(num_players, bot_class.__name__, seed, reps))
+    print(render_scores(scores))
+    sleep(0.1)
+    exit()
+
+def render_scores(scores):
     freq_score = []
     max_width  = 50
+    op         = []
     for i in range(26):
         freq_score.append(len([s for s in scores if s[1]==i]))
     for i in range(26):
@@ -51,12 +61,13 @@ def bot_game(bot_class, num_players, seed, reps):
         examples  = [s[0] for s in scores if s[1]==i]
         example   = ("eg:"+examples[0]) if examples else ''
         bar_text  = '{: >3} {} {}'.format(freq_score[i] if freq_score[i] else '', "█"*bar_width, example)
-        print("{: >2} : {}".format(i, bar_text))
+        op.append("{: >2} : {}".format(i, bar_text))
     scores_list = [s[1] for s in scores]
-    print("median: {}, mean: {:.1f}, stdev: {:.1f}".format(median(scores_list), \
-                                                     mean(scores_list), \
-                                                    stdev(scores_list),))
-    exit()
+    if len(scores_list) > 1:
+        op.append("median: {}, mean: {:.1f}, stdev: {:.1f}".format(median(scores_list), \
+                                                                 mean(scores_list), \
+                                                                stdev(scores_list)))
+    return "\n".join(op)
 
 def game_loop(hanabi, session, bot_class=None):
     move_descriptions = []
