@@ -59,31 +59,31 @@ class HanabiBot():
 2 x HanabiBot playing, starting seed aaaaa for 1000 reps
  0 :
  1 :
- 2 :   3 █ eg:YCntt
- 3 :   2  eg:NAgbn
- 4 :   8 ██ eg:PW2Jr
- 5 :   9 ███ eg:NENG8
- 6 :  13 ████ eg:ao656
- 7 :  13 ████ eg:qsrxi
- 8 :  11 ████ eg:sul4f
- 9 :  21 ███████ eg:BiImP
-10 :  25 █████████ eg:lZyvy
-11 :  21 ███████ eg:aaaaa
-12 :  25 █████████ eg:HWntT
-13 :  27 ██████████ eg:l644V
-14 :  31 ███████████ eg:K7hlq
-15 :  35 █████████████ eg:BtxQx
-16 :  51 ███████████████████ eg:iGzW5
-17 :  48 █████████████████ eg:dGIaO
-18 :  85 ███████████████████████████████ eg:ZGS4Z
-19 : 116 ███████████████████████████████████████████ eg:Xrs3O
-20 : 134 ██████████████████████████████████████████████████ eg:Or3sD
-21 : 116 ███████████████████████████████████████████ eg:FRXZS
-22 : 101 █████████████████████████████████████ eg:oKFnu
-23 :  66 ████████████████████████ eg:zAxhN
-24 :  31 ███████████ eg:nd27K
-25 :   8 ██ eg:KF4bJ
-median: 19.0, mean: 17.8, stdev: 4.7
+ 2 :
+ 3 :
+ 4 :   3  eg:Lgntj
+ 5 :   4 █ eg:uZ7Mt
+ 6 :   6 █ eg:Zsq3D
+ 7 :  12 ███ eg:HWntT
+ 8 :  13 ███ eg:BtxQx
+ 9 :  18 █████ eg:FRXZS
+10 :  20 █████ eg:AXGKw
+11 :  15 ████ eg:lZyvy
+12 :  24 ███████ eg:l644V
+13 :  18 █████ eg:aaaaa
+14 :  19 █████ eg:aaQLk
+15 :  28 ████████ eg:9YxVS
+16 :  33 █████████ eg:sZVfl
+17 :  46 █████████████ eg:ch84n
+18 :  72 █████████████████████ eg:uoNhQ
+19 : 114 █████████████████████████████████ eg:qPToE
+20 : 121 ████████████████████████████████████ eg:5Edrr
+21 : 168 ██████████████████████████████████████████████████ eg:vh2q9
+22 : 153 █████████████████████████████████████████████ eg:pPlE1
+23 :  80 ███████████████████████ eg:zAxhN
+24 :  26 ███████ eg:oKFnu
+25 :   7 ██ eg:GcaJJ
+median: 20.0, mean: 18.7, stdev: 4.2
     """
     def get_move(self, hanabi):
         #todo - remove dependancy on hanabi class, strictly receive what
@@ -140,8 +140,14 @@ median: 19.0, mean: 17.8, stdev: 4.7
         elif action == 'play':
             return 'p'+hand_letter
         elif action == 'inform':
-            # tells number or, if already known, tells colour
-            attr = 0 if next_info[card]['number'] else 1
+            match_colours = len([c for c in hand if self.equivalent(c, card, by="colour")])
+            match_numbers = len([c for c in hand if self.equivalent(c, card, by="number")])
+            if next_info[card]['number'] or next_info[card]['colour']:
+              # if has number tell colour, and vice versa
+              attr = 0 if next_info[card]['number'] else 1
+            else:
+              # tell the most specific type of info
+              attr = int(match_colours > match_numbers)
             return '{}{}'.format(next_player_id+1, str(card[attr])[0])
 
     def will_play(self, hanabi, hand, hand_info, playable_cards):
