@@ -59,31 +59,31 @@ class HanabiBot():
 2 x HanabiBot playing, starting seed aaaaa for 1000 reps
  0 :
  1 :
- 2 :   1  eg:e3Yd3
- 3 :   2  eg:pn44V
- 4 :   1  eg:W9f5f
- 5 :   1  eg:sX8Nk
- 6 :   3  eg:Zsq3D
- 7 :   6 █ eg:BiImP
- 8 :   9 ██ eg:ZiR16
- 9 :  11 ███ eg:nd27K
-10 :  13 ████ eg:h3GcV
-11 :  12 ███ eg:aSxV7
-12 :  11 ███ eg:Lgntj
-13 :  16 █████ eg:dGIaO
-14 :  25 ███████ eg:mXCkV
-15 :  25 ███████ eg:EvUrx
-16 :  31 █████████ eg:yl0pV
-17 :  66 █████████████████████ eg:zAxhN
-18 :  77 ████████████████████████ eg:Ysjs2
-19 : 110 ███████████████████████████████████ eg:Or3sD
-20 : 149 ███████████████████████████████████████████████ eg:K7hlq
-21 : 157 ██████████████████████████████████████████████████ eg:pPlE1
-22 : 139 ████████████████████████████████████████████ eg:NENG8
-23 : 105 █████████████████████████████████ eg:aaaaa
-24 :  18 █████ eg:YEC6h
-25 :  12 ███ eg:1odHU
-median: 20.0, mean: 19.2, stdev: 3.7
+ 2 :
+ 3 :
+ 4 :
+ 5 :   1  eg:e3Yd3
+ 6 :   1  eg:vcxTR
+ 7 :
+ 8 :   6 █ eg:ZiR16
+ 9 :   2  eg:vgAWi
+10 :   5 █ eg:Q5wdT
+11 :   5 █ eg:pn44V
+12 :   6 █ eg:aaaaa
+13 :   8 ██ eg:GalH0
+14 :  18 ████ eg:sZVfl
+15 :  28 ███████ eg:EvUrx
+16 :  34 ████████ eg:zAxhN
+17 :  59 ███████████████ eg:Xrs3O
+18 : 100 ██████████████████████████ eg:K7hlq
+19 : 136 ███████████████████████████████████ eg:ZGS4Z
+20 : 173 █████████████████████████████████████████████ eg:Or3sD
+21 : 191 ██████████████████████████████████████████████████ eg:KF4bJ
+22 : 127 █████████████████████████████████ eg:pPlE1
+23 :  66 █████████████████ eg:dGIaO
+24 :  32 ████████ eg:YEC6h
+25 :   2  eg:1odHU
+median: 20.0, mean: 19.6, stdev: 2.8
     """
     def get_move(self, hanabi):
         #todo - remove dependancy on hanabi class, strictly receive what
@@ -167,10 +167,12 @@ median: 20.0, mean: 19.2, stdev: 3.7
                 return card
             elif self.number_means_playable(known_card[1], playable_cards):
                 return card
+            elif self.can_discard(hanabi, card_info):
+                return None
             elif card_info['colour'] and card_info['number']:
                 continue #if it's fully known and not playable, don't play it
 
-            if self.can_discard(hanabi, card, card_info):
+            if self.can_discard(hanabi, card_info):
                 continue # don't consider playing a card we know can be disposed of
 
             if self.is_playable(hanabi, colour=card_info['colour']) or self.is_playable(hanabi, number=card_info['number']):
@@ -179,7 +181,7 @@ median: 20.0, mean: 19.2, stdev: 3.7
         if len(short_hand):
             return short_hand[-1]
 
-    def can_discard(self, hanabi, card, card_info):
+    def can_discard(self, hanabi, card_info):
         if card_info['colour'] and card_info['number'] \
            and not self.is_required(hanabi, (card_info['colour'], card_info['number'])):
                 ##print('not required')
@@ -196,7 +198,7 @@ median: 20.0, mean: 19.2, stdev: 3.7
 
     def will_discard(self, hanabi, hand, hand_info):
         for idx, card in enumerate(hand):
-            if self.can_discard(hanabi, card, hand_info[card]):
+            if self.can_discard(hanabi, hand_info[card]):
                 return card
 
         #todo - prioritise discard by card we have least "is-not" info about
