@@ -207,8 +207,8 @@ median: 20.0, mean: 19.2, stdev: 3.7
         return hand[0] # if we have info on all, throw first
 
     def could_play(self, hand, playable_cards):
-        overlap_set   = set(playable_cards).intersection(set(self.simplify_cards(hand)))
-        next_can_play = sorted(list(overlap_set), key=lambda c: c[1])
+        sorted_set    = sorted(list(set(playable_cards).intersection(set(self.simplify_cards(hand)))))
+        next_can_play = sorted(sorted_set, key=lambda c: c[1])
         if next_can_play:
             return self.desimplify_card(next_can_play[0], hand)
 
