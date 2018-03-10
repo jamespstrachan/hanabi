@@ -59,31 +59,31 @@ class HanabiBot():
 2 x HanabiBot playing, starting seed aaaaa for 1000 reps
  0 :
  1 :
- 2 :
- 3 :   1  eg:uZ7Mt
+ 2 :   1  eg:e3Yd3
+ 3 :   2  eg:pn44V
  4 :   1  eg:W9f5f
- 5 :   2  eg:PW2Jr
- 6 :   3  eg:BiImP
- 7 :   6 █ eg:n5NXj
- 8 :  14 ████ eg:GcaJJ
- 9 :  10 ███ eg:lZyvy
-10 :  18 █████ eg:OKfyE
-11 :  10 ███ eg:pn44V
-12 :  16 ████ eg:l644V
-13 :  21 ██████ eg:dGIaO
-14 :  24 ███████ eg:9YxVS
-15 :  27 ████████ eg:qbrOj
-16 :  41 ████████████ eg:Xrs3O
-17 :  59 ██████████████████ eg:zAxhN
-18 :  64 ███████████████████ eg:vh2q9
-19 : 102 ███████████████████████████████ eg:pPlE1
-20 : 158 ████████████████████████████████████████████████ eg:K7hlq
-21 : 163 ██████████████████████████████████████████████████ eg:Or3sD
-22 : 145 ████████████████████████████████████████████ eg:5Edrr
-23 :  73 ██████████████████████ eg:aaaaa
-24 :  32 █████████ eg:N8v4C
-25 :  10 ███ eg:qJp58
-median: 20.0, mean: 19.0, stdev: 3.8
+ 5 :   1  eg:sX8Nk
+ 6 :   3  eg:Zsq3D
+ 7 :   6 █ eg:BiImP
+ 8 :   9 ██ eg:ZiR16
+ 9 :  11 ███ eg:nd27K
+10 :  13 ████ eg:h3GcV
+11 :  12 ███ eg:aSxV7
+12 :  11 ███ eg:Lgntj
+13 :  16 █████ eg:dGIaO
+14 :  25 ███████ eg:mXCkV
+15 :  25 ███████ eg:EvUrx
+16 :  31 █████████ eg:yl0pV
+17 :  66 █████████████████████ eg:zAxhN
+18 :  77 ████████████████████████ eg:Ysjs2
+19 : 110 ███████████████████████████████████ eg:Or3sD
+20 : 149 ███████████████████████████████████████████████ eg:K7hlq
+21 : 157 ██████████████████████████████████████████████████ eg:pPlE1
+22 : 139 ████████████████████████████████████████████ eg:NENG8
+23 : 105 █████████████████████████████████ eg:aaaaa
+24 :  18 █████ eg:YEC6h
+25 :  12 ███ eg:1odHU
+median: 20.0, mean: 19.2, stdev: 3.7
     """
     def get_move(self, hanabi):
         #todo - remove dependancy on hanabi class, strictly receive what
@@ -101,7 +101,7 @@ median: 20.0, mean: 19.0, stdev: 3.8
             i_will_play_card = self.will_play(hanabi, my_hand, my_info, playable_cards)
             if could_play_card and (not i_will_play_card or i_will_play_card[1] != could_play_card[1]):
                 self.print_thought("next could play", could_play_card, 'inform')
-                return self.format_move(next_hand, 'inform', could_play_card, next_player_id, next_info)
+                return self.format_move(next_hand, 'inform', could_play_card, next_player_id, next_info, playable_cards)
             else:
                 discard_card = self.will_discard(hanabi, next_hand, next_info)
                 if self.is_required(hanabi, discard_card) or self.simplify_cards([discard_card])[0] in playable_cards:
@@ -133,21 +133,23 @@ median: 20.0, mean: 19.0, stdev: 3.8
             if self.equivalent(c, card):
                 return i
 
-    def format_move(self, hand, action, card, next_player_id=None, next_info=None):
+    def format_move(self, hand, action, card, next_player_id=None, next_info=None, playable_cards=None):
         hand_letter = 'abcde'[self.find_card_idx(hand, card)]
         if action == 'discard':
             return 'd'+hand_letter
         elif action == 'play':
             return 'p'+hand_letter
         elif action == 'inform':
-            match_colours = len([c for c in hand if self.equivalent(c, card, by="colour")])
-            match_numbers = len([c for c in hand if self.equivalent(c, card, by="number")])
-            if next_info[card]['number'] or next_info[card]['colour']:
+            if playable_cards and self.number_means_playable(card[1], playable_cards):
+                attr = 1
+            elif next_info[card]['number'] or next_info[card]['colour']:
               # if has number tell colour, and vice versa
               attr = 0 if next_info[card]['number'] else 1
             else:
               # tell the most specific type of info, prioritising numbers if equally specific
-              attr = 1 - int(match_colours < match_numbers)
+              match_colours = len([c for c in hand if self.equivalent(c, card, by="colour")])
+              match_numbers = len([c for c in hand if self.equivalent(c, card, by="number")])
+              attr = int(match_colours >= match_numbers)
             return '{}{}'.format(next_player_id+1, str(card[attr])[0])
 
     def will_play(self, hanabi, hand, hand_info, playable_cards):
@@ -163,14 +165,15 @@ median: 20.0, mean: 19.0, stdev: 3.8
 
             if known_card in playable_cards:
                 return card
+            elif self.number_means_playable(known_card[1], playable_cards):
+                return card
             elif card_info['colour'] and card_info['number']:
                 continue #if it's fully known and not playable, don't play it
 
             if self.can_discard(hanabi, card, card_info):
                 continue # don't consider playing a card we know can be disposed of
 
-            if   card_info['colour'] and self.is_playable(hanabi, colour=card_info['colour']) \
-              or card_info['number'] and self.is_playable(hanabi, number=card_info['number']):
+            if self.is_playable(hanabi, colour=card_info['colour']) or self.is_playable(hanabi, number=card_info['number']):
                 if oldest_unknown_idx is not None:
                     short_hand.append(card)
         if len(short_hand):
@@ -204,7 +207,8 @@ median: 20.0, mean: 19.0, stdev: 3.8
         return hand[0] # if we have info on all, throw first
 
     def could_play(self, hand, playable_cards):
-        next_can_play = sorted(list(set(playable_cards).intersection(set(self.simplify_cards(hand)))))
+        overlap_set   = set(playable_cards).intersection(set(self.simplify_cards(hand)))
+        next_can_play = sorted(list(overlap_set), key=lambda c: c[1])
         if next_can_play:
             return self.desimplify_card(next_can_play[0], hand)
 
@@ -222,6 +226,10 @@ median: 20.0, mean: 19.0, stdev: 3.8
         if colour and len([c for c in hanabi.playable_cards() if c[0] == colour]):
             return True
         return False
+
+    def number_means_playable(self, number, playable_cards):
+        #todo: subtract all discarded and other-hand cards to know if we must be able to play
+        return len([c for c in playable_cards if c[1]==number]) == 5
 
     def is_required(self, hanabi, card):
         next_for_colour = [c for c in hanabi.playable_cards() if c[0]==card[0] and c[1]<=card[1]]
