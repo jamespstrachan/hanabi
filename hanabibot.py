@@ -130,7 +130,7 @@ median: 19.0, mean: 17.8, stdev: 4.7
 
     def find_card_idx(self, hand, card):
         for i, c in enumerate(hand):
-            if self.equivalent(c, card):
+            if self.equivalent(c, card, by="serial"):
                 return i
 
     def format_move(self, hand, action, card, next_player_id=None, next_info=None):
@@ -153,7 +153,7 @@ median: 19.0, mean: 17.8, stdev: 4.7
             known_card = (card_info['colour'] if card_info['colour'] else 'gray', \
                               card_info['number'] if card_info['number'] else -1)
 
-            if not oldest_unknown_idx and known_card == ('gray',-1):
+            if oldest_unknown_idx is None and known_card == ('gray',-1):
                 oldest_unknown_idx = idx
 
             if known_card in possible_cards:
@@ -163,7 +163,6 @@ median: 19.0, mean: 17.8, stdev: 4.7
 
             if self.can_discard(hanabi, card, card_info):
                 continue # don't consider playing a card we know can be disposed of
-
             if   card_info['colour'] and self.is_playable(hanabi, colour=card_info['colour']) \
               or card_info['number'] and self.is_playable(hanabi, number=card_info['number']):
                 if oldest_unknown_idx is not None:
@@ -240,6 +239,8 @@ median: 19.0, mean: 17.8, stdev: 4.7
         eq['colour'] = card1[0]==card2[0]
         eq['number'] = card1[1]==card2[1]
         eq['all']    = eq['colour'] and eq['number']
+        if by == "serial":
+            eq['serial'] = eq['all'] and card1[2]==card2[2]
         return eq[by]
 
     def simplify_cards(self, cards):
