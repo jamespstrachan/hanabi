@@ -10,18 +10,18 @@ def main():
     seed = argv[1] if len(argv)>1 else None
     session, bot_class = None, None
 
-    game_type = input("Play (l)ocal, (r)emote or (b)ot game? ")
+    game_type = input("Play (l)ocal, (r)emote or (b)ot game? ") or 'b'
     if game_type and game_type[0] == 'r':
         server_class = MockHanabiServer if game_type == 'rt' else HanabiGistServer
         session      = start_remote_game(seed, server_class)
         hanabi       = session.hanabi
     elif game_type == 'b':
-        reps        = int(input("how many reps? "))
+        reps        = int(input("how many reps? ") or 1)
         bot_names   = [c[0] for c in inspect.getmembers(hanabibot) if c[0][-3:] == "Bot"]
         print("\n".join(["{} = {}".format(i,bc) for i,bc in enumerate(bot_names)]))
-        bot_name    = bot_names[int(input("Which bot to use? "))]
+        bot_name    = bot_names[int(input("Which bot to use? ") or 0)]
         bot_class   = getattr(hanabibot, bot_name)
-        num_players = int(input("How many instances of {} (2-5)? ".format(bot_name)))
+        num_players = int(input("How many instances of {} (2-5)? ".format(bot_name)) or 2)
         if(reps > 1):
             bot_game(bot_class, num_players, seed, reps)
         hanabi = HanabiGame(num_players, seed)
@@ -33,6 +33,7 @@ def main():
 
 def bot_game(bot_class, num_players, seed, reps):
     scores = []
+
     print("{} x {} playing, starting seed {} for {} reps".format(num_players, bot_class.__name__, seed, reps))
     for i in range(reps):
         sys.stdout = mystdout = StringIO()
@@ -40,7 +41,7 @@ def bot_game(bot_class, num_players, seed, reps):
         while hanabi.is_game_over() == False:
             bot = bot_class()
             play_move(hanabi, bot.get_move(hanabi))
-        scores.append((seed, hanabi.score()))
+        scores.append((seed, hanabi.score(), len(hanabi.deck)))
         seed = hanabi.random_seed()
         sys.stdout = sys.__stdout__
 
@@ -63,6 +64,7 @@ def render_scores(scores):
         bar_text  = '{: >3} {} {}'.format(freq_score[i] if freq_score[i] else '', "█"*bar_width, example)
         op.append("{: >2} : {}".format(i, bar_text))
     scores_list = [s[1] for s in scores]
+    op.append("{:.1%} of games completed deck".format(len([s for s in scores if s[2]==0])/len(scores)))
     if len(scores_list) > 1:
         op.append("median: {}, mean: {:.1f}, stdev: {:.1f}".format(median(scores_list), \
                                                                  mean(scores_list), \
