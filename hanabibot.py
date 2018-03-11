@@ -61,29 +61,30 @@ class HanabiBot():
  1 :
  2 :
  3 :
- 4 :
- 5 :
- 6 :
- 7 :
- 8 :
- 9 :   1  eg:aDC2u
-10 :   4 █ eg:Q5wdT
-11 :   4 █ eg:aaQLk
-12 :   6 █ eg:3COPY
-13 :   9 ██ eg:GalH0
-14 :   9 ██ eg:1sYrs
-15 :  25 ██████ eg:EvUrx
-16 :  37 █████████ eg:ZGS4Z
-17 :  57 ███████████████ eg:FRXZS
-18 : 112 █████████████████████████████ eg:qbrOj
-19 : 170 ████████████████████████████████████████████ eg:aaaaa
-20 : 190 ██████████████████████████████████████████████████ eg:5Edrr
-21 : 179 ███████████████████████████████████████████████ eg:pPlE1
-22 : 135 ███████████████████████████████████ eg:Xrs3O
-23 :  50 █████████████ eg:lZb82
-24 :  11 ██ eg:lZyvy
-25 :   1  eg:jwNQ5
-median: 20.0, mean: 19.6, stdev: 2.3
+ 4 :   1  eg:eK2NH
+ 5 :   1  eg:FY3D9
+ 6 :   3  eg:upys4
+ 7 :   4  eg:Iq48c
+ 8 :   6 █ eg:nd27K
+ 9 :   9 ██ eg:DVPrJ
+10 :   5 █ eg:ti3oj
+11 :  12 ██ eg:vLyO5
+12 :  10 ██ eg:N8v4C
+13 :  14 ███ eg:KF4bJ
+14 :  14 ███ eg:RLYqy
+15 :  20 ████ eg:3FdAI
+16 :  22 █████ eg:EvUrx
+17 :  35 ████████ eg:iGzW5
+18 :  58 ██████████████ eg:HWntT
+19 : 117 ████████████████████████████ eg:zAxhN
+20 : 159 ██████████████████████████████████████ eg:5Edrr
+21 : 204 ██████████████████████████████████████████████████ eg:Or3sD
+22 : 165 ████████████████████████████████████████ eg:FRXZS
+23 : 103 █████████████████████████ eg:aaaaa
+24 :  32 ███████ eg:1odHU
+25 :   6 █ eg:1rC5V
+88.4% of games completed deck
+median: 21.0, mean: 19.8, stdev: 3.3
     """
     def get_move(self, hanabi):
         #todo - remove dependancy on hanabi class, strictly receive what
@@ -145,6 +146,8 @@ median: 20.0, mean: 19.6, stdev: 2.3
             elif next_info[card]['number'] or next_info[card]['colour']:
               # if has number tell colour, and vice versa
               attr = 0 if next_info[card]['number'] else 1
+            elif card[1] in [1,5]:
+              attr = 1 # Always inform about 1s or 5s by number first
             else:
               # tell the most specific type of info, prioritising numbers if equally specific
               match_colours = len([c for c in hand if self.equivalent(c, card, by="colour")])
@@ -153,11 +156,12 @@ median: 20.0, mean: 19.6, stdev: 2.3
             return '{}{}'.format(next_player_id+1, str(card[attr])[0])
 
     def will_play(self, hanabi, hand, hand_info, playable_cards):
-        short_hand = []
-        sure_hand  = []
-        junk_hand  = []
-        told_to_hold = set()
+        maybe_hand   = []
+        sure_hand    = []
+        junk_hand    = []
+        told_to_hold = []
         oldest_unknown_idx = None
+        trailing_1_card    = None
         for idx,card in enumerate(hand):
             card_info  = hand_info[card]
             known_card = (card_info['colour'] if card_info['colour'] else 'gray', \
@@ -166,14 +170,18 @@ median: 20.0, mean: 19.6, stdev: 2.3
             if oldest_unknown_idx is None:
                 if known_card == ('gray',-1):
                     oldest_unknown_idx = idx
-                else:
-                    told_to_hold.add(known_card[1])
+                    if trailing_1_card:
+                        maybe_hand.append(trailing_1_card)
+                        trailing_1_card = None
+                elif known_card[1] != 1: # We won't be told to hold ones
+                    told_to_hold += [known_card[0], known_card[1]]
 
             if known_card in playable_cards \
             or self.number_means_playable(known_card[1], playable_cards):
                 sure_hand.append(card)
                 continue
-            elif self.can_discard(hanabi, card_info):
+            elif self.should_discard(hanabi, number=card_info['number']) \
+              or self.should_discard(hanabi, colour=card_info['colour']):
                 junk_hand.append(card)
                 continue
             elif card_info['colour'] and card_info['number']:
@@ -182,17 +190,30 @@ median: 20.0, mean: 19.6, stdev: 2.3
             if self.can_discard(hanabi, card_info):
                 continue # don't consider playing a card we know can be disposed of
 
+            number_maybe = self.is_playable(hanabi, number=card_info['number'])
+            colour_maybe = self.is_playable(hanabi, colour=card_info['colour'])
+
+            # if a 1 is the newest known card, assume we only know because it's playable
+            # (because we don't inform to avoid discarding ones!)
+            if oldest_unknown_idx is None and card_info['number'] == 1:
+                trailing_1_card = card
+            else:
+                trailing_1_card = None
+
+            if idx == 4 and oldest_unknown_idx is None and (colour_maybe or number_maybe):
+                maybe_hand.append(card) # If all cards have info about, consider playing newest
+
             if oldest_unknown_idx is not None \
-            and (self.is_playable(hanabi, colour=card_info['colour']) \
-                or self.is_playable(hanabi, number=card_info['number']) and card_info['number'] not in told_to_hold):
-                short_hand.append(card)
+            and (  (colour_maybe and card_info['colour'] not in told_to_hold) \
+                or (number_maybe and card_info['number'] not in told_to_hold) ):
+                maybe_hand.append(card)
 
         if len(sure_hand):
-            return sure_hand[0]
+            return sure_hand[-1]
         if len(junk_hand):
             return None
-        if len(short_hand):
-            return short_hand[-1]
+        if len(maybe_hand):
+            return maybe_hand[-1]
 
     def can_discard(self, hanabi, card_info):
         if card_info['colour'] and card_info['number'] \
@@ -200,11 +221,11 @@ median: 20.0, mean: 19.6, stdev: 2.3
                 ##print('not required')
                 return True # if we know exact card and it's not required, discard
         if card_info['colour'] \
-           and self.is_discardable(hanabi, colour=card_info['colour']):
+           and self.should_discard(hanabi, colour=card_info['colour']):
                 ##print('colour done')
                 return True # if we know colour is not required, discard
         if card_info['number'] \
-           and self.is_discardable(hanabi, number=card_info['number']):
+           and self.should_discard(hanabi, number=card_info['number']):
                 ##print('number done')
                 return True # if we know number is not required, discard
         return False
@@ -219,7 +240,7 @@ median: 20.0, mean: 19.6, stdev: 2.3
             card_info = hand_info[card]
             if not card_info['colour'] and not card_info['number']:
                 return card
-        return hand[0] # if we have info on all, throw first
+        return sorted(hand, key=lambda c: c[1])[-1] # if we have info on all, throw highest
 
     def could_play(self, hand, playable_cards):
         sorted_set    = sorted(list(set(playable_cards).intersection(set(self.simplify_cards(hand)))))
@@ -227,10 +248,11 @@ median: 20.0, mean: 19.6, stdev: 2.3
         if next_can_play:
             return self.desimplify_card(next_can_play[0], hand)
 
-    def is_discardable(self, hanabi, colour=None, number=None):
-        if number and len([c for c in hanabi.playable_cards() if c[1] <= number]) == 0:
+    def should_discard(self, hanabi, colour=None, number=None):
+        """returns true if there's no possible benefit to keeping card"""
+        if number and number != -1 and len([c for c in hanabi.playable_cards() if c[1] <= number]) == 0:
             return True  # if all playable_cards are greater than card, discard
-        if colour and len([c for c in hanabi.playable_cards() if c[0] == colour]) == 0:
+        if colour and colour != 'gray' and len([c for c in hanabi.playable_cards() if c[0] == colour]) == 0:
             return True  # if this card's pile is complete, discard
         #todo - counting discard pile to tell if this card must be
         return False
@@ -247,6 +269,7 @@ median: 20.0, mean: 19.6, stdev: 2.3
         return len([c for c in playable_cards if c[1]==number]) == 5
 
     def is_required(self, hanabi, card):
+        """returns true if discarding this card would make completing the game impossible"""
         next_for_colour = [c for c in hanabi.playable_cards() if c[0]==card[0] and c[1]<=card[1]]
         if not len(next_for_colour):
             return False # Not required if colour's pile is complete
