@@ -62,28 +62,28 @@ class HanabiBot():
  2 :
  3 :
  4 :
- 5 :   1  eg:e3Yd3
- 6 :   1  eg:vcxTR
+ 5 :
+ 6 :
  7 :
- 8 :   6 █ eg:ZiR16
- 9 :   2  eg:vgAWi
-10 :   5 █ eg:Q5wdT
-11 :   5 █ eg:pn44V
-12 :   6 █ eg:aaaaa
-13 :   8 ██ eg:GalH0
-14 :  18 ████ eg:sZVfl
-15 :  28 ███████ eg:EvUrx
-16 :  34 ████████ eg:zAxhN
-17 :  59 ███████████████ eg:Xrs3O
-18 : 100 ██████████████████████████ eg:K7hlq
-19 : 136 ███████████████████████████████████ eg:ZGS4Z
-20 : 173 █████████████████████████████████████████████ eg:Or3sD
-21 : 191 ██████████████████████████████████████████████████ eg:KF4bJ
-22 : 127 █████████████████████████████████ eg:pPlE1
-23 :  66 █████████████████ eg:dGIaO
-24 :  32 ████████ eg:YEC6h
-25 :   2  eg:1odHU
-median: 20.0, mean: 19.6, stdev: 2.8
+ 8 :
+ 9 :   1  eg:aDC2u
+10 :   4 █ eg:Q5wdT
+11 :   4 █ eg:aaQLk
+12 :   6 █ eg:3COPY
+13 :   9 ██ eg:GalH0
+14 :   9 ██ eg:1sYrs
+15 :  25 ██████ eg:EvUrx
+16 :  37 █████████ eg:ZGS4Z
+17 :  57 ███████████████ eg:FRXZS
+18 : 112 █████████████████████████████ eg:qbrOj
+19 : 170 ████████████████████████████████████████████ eg:aaaaa
+20 : 190 ██████████████████████████████████████████████████ eg:5Edrr
+21 : 179 ███████████████████████████████████████████████ eg:pPlE1
+22 : 135 ███████████████████████████████████ eg:Xrs3O
+23 :  50 █████████████ eg:lZb82
+24 :  11 ██ eg:lZyvy
+25 :   1  eg:jwNQ5
+median: 20.0, mean: 19.6, stdev: 2.3
     """
     def get_move(self, hanabi):
         #todo - remove dependancy on hanabi class, strictly receive what
@@ -154,30 +154,43 @@ median: 20.0, mean: 19.6, stdev: 2.8
 
     def will_play(self, hanabi, hand, hand_info, playable_cards):
         short_hand = []
+        sure_hand  = []
+        junk_hand  = []
+        told_to_hold = set()
         oldest_unknown_idx = None
         for idx,card in enumerate(hand):
             card_info  = hand_info[card]
             known_card = (card_info['colour'] if card_info['colour'] else 'gray', \
                               card_info['number'] if card_info['number'] else -1)
 
-            if oldest_unknown_idx is None and known_card == ('gray',-1):
-                oldest_unknown_idx = idx
+            if oldest_unknown_idx is None:
+                if known_card == ('gray',-1):
+                    oldest_unknown_idx = idx
+                else:
+                    told_to_hold.add(known_card[1])
 
-            if known_card in playable_cards:
-                return card
-            elif self.number_means_playable(known_card[1], playable_cards):
-                return card
+            if known_card in playable_cards \
+            or self.number_means_playable(known_card[1], playable_cards):
+                sure_hand.append(card)
+                continue
             elif self.can_discard(hanabi, card_info):
-                return None
+                junk_hand.append(card)
+                continue
             elif card_info['colour'] and card_info['number']:
                 continue #if it's fully known and not playable, don't play it
 
             if self.can_discard(hanabi, card_info):
                 continue # don't consider playing a card we know can be disposed of
 
-            if self.is_playable(hanabi, colour=card_info['colour']) or self.is_playable(hanabi, number=card_info['number']):
-                if oldest_unknown_idx is not None:
-                    short_hand.append(card)
+            if oldest_unknown_idx is not None \
+            and (self.is_playable(hanabi, colour=card_info['colour']) \
+                or self.is_playable(hanabi, number=card_info['number']) and card_info['number'] not in told_to_hold):
+                short_hand.append(card)
+
+        if len(sure_hand):
+            return sure_hand[0]
+        if len(junk_hand):
+            return None
         if len(short_hand):
             return short_hand[-1]
 
@@ -210,7 +223,7 @@ median: 20.0, mean: 19.6, stdev: 2.8
 
     def could_play(self, hand, playable_cards):
         sorted_set    = sorted(list(set(playable_cards).intersection(set(self.simplify_cards(hand)))))
-        next_can_play = sorted(sorted_set, key=lambda c: c[1])
+        next_can_play = sorted(sorted_set, key=lambda c: (c[1], -self.find_card_idx(hand, self.desimplify_card(c, hand))))
         if next_can_play:
             return self.desimplify_card(next_can_play[0], hand)
 
