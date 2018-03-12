@@ -89,12 +89,13 @@ median: 21.0, mean: 20.0, stdev: 2.9
     def get_move(self, hanabi):
         #todo - remove dependancy on hanabi class, strictly receive what
         #       player can see to avoid accidental reliance on hidden info
-        playable_cards = hanabi.playable_cards()
+        my_player_id   = hanabi.current_player_id()
         my_hand        = hanabi.current_hand()
-        my_info        = hanabi.info[hanabi.current_player_id()]
+        my_info        = hanabi.info[my_player_id]
         next_player_id = hanabi.next_player_id()
         next_hand      = hanabi.next_hand()
         next_info      = hanabi.info[next_player_id]
+        playable_cards    = hanabi.playable_cards()
 
         will_play_card = self.will_play(hanabi, next_hand, next_info, playable_cards)
         if hanabi.clocks > 0 and not will_play_card:
@@ -189,8 +190,8 @@ median: 21.0, mean: 20.0, stdev: 2.9
             if self.can_discard(hanabi, card_info):
                 continue # don't consider playing a card we know can be disposed of
 
-            number_maybe = self.is_playable(hanabi, number=card_info['number'])
-            colour_maybe = self.is_playable(hanabi, colour=card_info['colour'])
+            number_maybe = self.is_playable(playable_cards, number=card_info['number'])
+            colour_maybe = self.is_playable(playable_cards, colour=card_info['colour'])
 
             # if a 1 is the newest known card, assume we only know because it's playable
             # (because we don't inform to avoid discarding ones!)
@@ -261,10 +262,10 @@ median: 21.0, mean: 20.0, stdev: 2.9
                     return True # Should discard if a lower card needed for pile is fully discarded
         return False
 
-    def is_playable(self, hanabi, colour=None, number=None):
-        if number and len([c for c in hanabi.playable_cards() if c[1] == number]):
+    def is_playable(self, playable_cards, colour=None, number=None):
+        if number and len([c for c in playable_cards if c[1] == number]):
             return True
-        if colour and len([c for c in hanabi.playable_cards() if c[0] == colour]):
+        if colour and len([c for c in playable_cards if c[0] == colour]):
             return True
         return False
 
@@ -286,13 +287,13 @@ median: 21.0, mean: 20.0, stdev: 2.9
         num_discarded = len([c for c in hanabi.discard_pile if self.equivalent(c, card)])
         return hanabi.scarcity(card[1]) - num_discarded
 
-    def equivalent(self, card1, card2, by='all'):
+    def equivalent(self, card1, card2, by='both'):
         eq = {}
         eq['colour'] = card1[0]==card2[0]
         eq['number'] = card1[1]==card2[1]
-        eq['all']    = eq['colour'] and eq['number']
+        eq['both']   = eq['colour'] and eq['number']
         if by == "serial":
-            eq['serial'] = eq['all'] and card1[2]==card2[2]
+            eq['serial'] = eq['both'] and card1[2]==card2[2]
         return eq[by]
 
     def simplify_cards(self, cards):

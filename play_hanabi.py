@@ -60,7 +60,7 @@ def render_scores(scores):
     for i in range(26):
         bar_width = max_width*freq_score[i]//max(freq_score)
         examples  = [s[0] for s in scores if s[1]==i]
-        example   = ("eg:"+examples[0]) if examples else ''
+        example   = ("eg: {}".format(examples[0])) if examples else ''
         bar_text  = '{: >3} {} {}'.format(freq_score[i] if freq_score[i] else '', "█"*bar_width, example)
         op.append("{: >2} : {}".format(i, bar_text))
     scores_list = [s[1] for s in scores]
