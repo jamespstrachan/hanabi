@@ -63,28 +63,28 @@ class HanabiBot():
  3 :
  4 :
  5 :
- 6 :   2  eg:upys4
- 7 :   5 █ eg:4yHkC
- 8 :   1  eg:2jFHF
- 9 :   6 █ eg:wY5AT
-10 :   2  eg:jwNQ5
-11 :  10 ██ eg:GTIif
-12 :   5 █ eg:N8v4C
-13 :  11 ██ eg:KF4bJ
-14 :   9 ██ eg:mqBpy
-15 :  19 ████ eg:1MWG4
-16 :  16 ███ eg:EvUrx
-17 :  35 ████████ eg:iGzW5
-18 :  78 ███████████████████ eg:NENG8
-19 : 119 █████████████████████████████ eg:zAxhN
-20 : 164 ████████████████████████████████████████ eg:K7hlq
-21 : 205 ██████████████████████████████████████████████████ eg:Or3sD
-22 : 175 ██████████████████████████████████████████ eg:ZGS4Z
-23 : 104 █████████████████████████ eg:aaaaa
-24 :  26 ██████ eg:Xrs3O
-25 :   8 █ eg:e8rZt
-92.7% of games completed deck
-median: 21.0, mean: 20.0, stdev: 2.9
+ 6 :   1  eg: 7x8MD
+ 7 :   5 █ eg: 4yHkC
+ 8 :   3  eg: QMEvt
+ 9 :   5 █ eg: YCntt
+10 :   6 █ eg: WkrtH
+11 :   6 █ eg: GTIif
+12 :   6 █ eg: N8v4C
+13 :  13 ███ eg: KF4bJ
+14 :   4  eg: Oc0fp
+15 :  16 ███ eg: Q5wdT
+16 :  14 ███ eg: EvUrx
+17 :  33 ████████ eg: iGzW5
+18 :  68 ████████████████ eg: NENG8
+19 : 128 ███████████████████████████████ eg: zAxhN
+20 : 167 ████████████████████████████████████████ eg: K7hlq
+21 : 205 ██████████████████████████████████████████████████ eg: Or3sD
+22 : 177 ███████████████████████████████████████████ eg: YEC6h
+23 : 106 █████████████████████████ eg: FRXZS
+24 :  30 ███████ eg: aaaaa
+25 :   7 █ eg: e8rZt
+93.6% of games completed deck
+median: 21.0, mean: 20.1, stdev: 2.9
     """
     def get_move(self, hanabi):
         #todo - remove dependancy on hanabi class, strictly receive what
@@ -96,12 +96,21 @@ median: 21.0, mean: 20.0, stdev: 2.9
         next_hand      = hanabi.next_hand()
         next_info      = hanabi.info[next_player_id]
         playable_cards    = hanabi.playable_cards()
+        my_playable_cards = []
+
+        for idx, card in enumerate(playable_cards):
+            seen_in_discard_pile = [x for x in hanabi.discard_pile if self.equivalent(x, card)]
+            visible_hands        = [h for i,h in enumerate(hanabi.hands) if i!=my_player_id]
+            seen_in_other_hands  = [x for x in sum(visible_hands,[]) if self.equivalent(x,card)]
+            if len(seen_in_discard_pile) + len(seen_in_other_hands) != hanabi.scarcity(card[1]):
+                my_playable_cards.append(card) # reduce set of playable cards based on what I can see
 
         will_play_card = self.will_play(hanabi, next_hand, next_info, playable_cards)
         if hanabi.clocks > 0 and not will_play_card:
-            could_play_card = self.could_play(next_hand, playable_cards)
-            i_will_play_card = self.will_play(hanabi, my_hand, my_info, playable_cards)
-            if could_play_card and (not i_will_play_card or i_will_play_card[1] != could_play_card[1]):
+            i_will_play_card = self.will_play(hanabi, my_hand, my_info, my_playable_cards)
+            avoid_number     = i_will_play_card[1] if i_will_play_card else -1
+            could_play_card  = self.could_play(next_hand, playable_cards, not_number=avoid_number)
+            if could_play_card:
                 self.print_thought("next could play", could_play_card, 'inform')
                 return self.format_move(next_hand, 'inform', could_play_card, next_player_id, next_info, playable_cards)
             else:
@@ -115,13 +124,18 @@ median: 21.0, mean: 20.0, stdev: 2.9
             if self.could_play([will_play_card], playable_cards):
                 self.print_thought("next will play", will_play_card, 'ok')
             elif hanabi.clocks > 0:
+                ## Tried logic to encourage different card if will_play is bad (rather than
+                ## informing more about will_play card), didn't seem to work but keeping ffr
+                # could_play_card = self.could_play(next_hand, playable_cards)
+                # if could_play_card and could_play_card[1] < will_play_card[1]: # if we can make play lower card
+                #    return self.format_move(next_hand, 'inform', could_play_card, next_player_id, next_info, playable_cards)
                 self.print_thought("next will play", will_play_card, 'inform')
                 return self.format_move(next_hand, 'inform', will_play_card, next_player_id, next_info)
             else:
                 self.print_thought("next will play", will_play_card, "can't correct")
 
 
-        play_card = self.will_play(hanabi, my_hand, my_info, playable_cards)
+        play_card = self.will_play(hanabi, my_hand, my_info, my_playable_cards)
         if play_card:
             return self.format_move(my_hand, 'play', play_card)
         discard_card = self.will_discard(hanabi, my_hand, my_info)
@@ -237,9 +251,10 @@ median: 21.0, mean: 20.0, stdev: 2.9
                 return card
         return sorted(hand, key=lambda c: c[1])[-1] # if we have info on all, throw highest
 
-    def could_play(self, hand, playable_cards):
+    def could_play(self, hand, playable_cards, not_number=-1):
         sorted_set    = sorted(list(set(playable_cards).intersection(set(self.simplify_cards(hand)))))
         next_can_play = sorted(sorted_set, key=lambda c: (c[1], -self.find_card_idx(hand, self.desimplify_card(c, hand))))
+        next_can_play = [c for c in next_can_play if c[1] != not_number]
         if next_can_play:
             return self.desimplify_card(next_can_play[0], hand)
 
