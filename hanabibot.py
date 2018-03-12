@@ -61,30 +61,30 @@ class HanabiBot():
  1 :
  2 :
  3 :
- 4 :   1  eg:eK2NH
- 5 :   1  eg:FY3D9
- 6 :   3  eg:upys4
- 7 :   4  eg:Iq48c
- 8 :   6 █ eg:nd27K
- 9 :   9 ██ eg:DVPrJ
-10 :   5 █ eg:ti3oj
-11 :  12 ██ eg:vLyO5
-12 :  10 ██ eg:N8v4C
-13 :  14 ███ eg:KF4bJ
-14 :  14 ███ eg:RLYqy
-15 :  20 ████ eg:3FdAI
-16 :  22 █████ eg:EvUrx
+ 4 :
+ 5 :
+ 6 :   2  eg:upys4
+ 7 :   5 █ eg:4yHkC
+ 8 :   1  eg:2jFHF
+ 9 :   6 █ eg:wY5AT
+10 :   2  eg:jwNQ5
+11 :  10 ██ eg:GTIif
+12 :   5 █ eg:N8v4C
+13 :  11 ██ eg:KF4bJ
+14 :   9 ██ eg:mqBpy
+15 :  19 ████ eg:1MWG4
+16 :  16 ███ eg:EvUrx
 17 :  35 ████████ eg:iGzW5
-18 :  58 ██████████████ eg:HWntT
-19 : 117 ████████████████████████████ eg:zAxhN
-20 : 159 ██████████████████████████████████████ eg:5Edrr
-21 : 204 ██████████████████████████████████████████████████ eg:Or3sD
-22 : 165 ████████████████████████████████████████ eg:FRXZS
-23 : 103 █████████████████████████ eg:aaaaa
-24 :  32 ███████ eg:1odHU
-25 :   6 █ eg:1rC5V
-88.4% of games completed deck
-median: 21.0, mean: 19.8, stdev: 3.3
+18 :  78 ███████████████████ eg:NENG8
+19 : 119 █████████████████████████████ eg:zAxhN
+20 : 164 ████████████████████████████████████████ eg:K7hlq
+21 : 205 ██████████████████████████████████████████████████ eg:Or3sD
+22 : 175 ██████████████████████████████████████████ eg:ZGS4Z
+23 : 104 █████████████████████████ eg:aaaaa
+24 :  26 ██████ eg:Xrs3O
+25 :   8 █ eg:e8rZt
+92.7% of games completed deck
+median: 21.0, mean: 20.0, stdev: 2.9
     """
     def get_move(self, hanabi):
         #todo - remove dependancy on hanabi class, strictly receive what
@@ -180,8 +180,7 @@ median: 21.0, mean: 19.8, stdev: 3.3
             or self.number_means_playable(known_card[1], playable_cards):
                 sure_hand.append(card)
                 continue
-            elif self.should_discard(hanabi, number=card_info['number']) \
-              or self.should_discard(hanabi, colour=card_info['colour']):
+            elif self.should_discard(hanabi, card_info):
                 junk_hand.append(card)
                 continue
             elif card_info['colour'] and card_info['number']:
@@ -220,12 +219,7 @@ median: 21.0, mean: 19.8, stdev: 3.3
            and not self.is_required(hanabi, (card_info['colour'], card_info['number'])):
                 ##print('not required')
                 return True # if we know exact card and it's not required, discard
-        if card_info['colour'] \
-           and self.should_discard(hanabi, colour=card_info['colour']):
-                ##print('colour done')
-                return True # if we know colour is not required, discard
-        if card_info['number'] \
-           and self.should_discard(hanabi, number=card_info['number']):
+        if self.should_discard(hanabi, card_info):
                 ##print('number done')
                 return True # if we know number is not required, discard
         return False
@@ -248,13 +242,23 @@ median: 21.0, mean: 19.8, stdev: 3.3
         if next_can_play:
             return self.desimplify_card(next_can_play[0], hand)
 
-    def should_discard(self, hanabi, colour=None, number=None):
+    def should_discard(self, hanabi, card_info):
         """returns true if there's no possible benefit to keeping card"""
-        if number and number != -1 and len([c for c in hanabi.playable_cards() if c[1] <= number]) == 0:
+        number = card_info['number']
+        colour = card_info['colour']
+        if number and len([c for c in hanabi.playable_cards() if c[1] <= number]) == 0:
             return True  # if all playable_cards are greater than card, discard
-        if colour and colour != 'gray' and len([c for c in hanabi.playable_cards() if c[0] == colour]) == 0:
+        if colour and len([c for c in hanabi.playable_cards() if c[0] == colour]) == 0:
             return True  # if this card's pile is complete, discard
-        #todo - counting discard pile to tell if this card must be
+
+        #todo - work out what else we can deduce from colour/number-only plus discard pile and other hands
+        if colour and number:
+            next_for_colour = [c for c in hanabi.playable_cards() if c[0]==colour and c[1]<=number]
+            if not len(next_for_colour):
+                return True # Should discard if colour's pile is complete
+            for x in range(next_for_colour[0][1], number):
+                if self.count_in_play(hanabi, (colour, x)) == 0:
+                    return True # Should discard if a lower card needed for pile is fully discarded
         return False
 
     def is_playable(self, hanabi, colour=None, number=None):
@@ -270,13 +274,9 @@ median: 21.0, mean: 19.8, stdev: 3.3
 
     def is_required(self, hanabi, card):
         """returns true if discarding this card would make completing the game impossible"""
-        next_for_colour = [c for c in hanabi.playable_cards() if c[0]==card[0] and c[1]<=card[1]]
-        if not len(next_for_colour):
-            return False # Not required if colour's pile is complete
-        for x in range(next_for_colour[0][1], card[1]):
-            if self.count_in_play(hanabi, (card[0], x)) == 0:
-                ##print("no {} left so don't need {}".format((card[0], x), card))
-                return False # Not required if a lower card not in pile is fully discarded
+        card_info = {'colour': card[0], 'number': card[1]}
+        if self.should_discard(hanabi, card_info):
+            return False
         if self.count_in_play(hanabi, card) == 1:
             return True
         ##print("{} x {} left in play".format(self.count_in_play(hanabi, card), card))
