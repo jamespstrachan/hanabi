@@ -1,49 +1,94 @@
 """A collection of bot classes to play hanabi with"""
 import random
 
-class HanabiRandomBot():
-    """ Strategy:
-        Choose a random move from all possible moves, play it
+class HanabiBotBase():
+    """Bot base class providing utility methods but no strategy"""
 
-2 x HanabiRandomBot playing, starting seed aaaaa for 1000 reps
- 0 : 353 ██████████████████████████████████████████████████ eg:LLGW9
- 1 : 308 ███████████████████████████████████████████ eg:Xw9dX
- 2 : 187 ██████████████████████████ eg:0CXrT
- 3 : 103 ██████████████ eg:dLRnq
- 4 :  30 ████ eg:zP0pR
- 5 :  14 █ eg:yRkuP
- 6 :   4  eg:IqNhD
- 7 :   1  eg:rxGHi
- 8 :
- 9 :
-10 :
-11 :
-12 :
-13 :
-14 :
-15 :
-16 :
-17 :
-18 :
-19 :
-20 :
-21 :
-22 :
-23 :
-24 :
-25 :
-median: 1.0, mean: 1.2, stdev: 1.2
-    """
-    def get_move(self, hanabi):
-        moves = [a+b for a in 'pd' for b in 'abcde']
-        if hanabi.clocks:
-            id     = hanabi.next_player_id()
-            moves += [str(id)+str(b) for b in range(1,6)]
-            moves += [str(id)+b[0] for b in hanabi.game_colours]
-            #todo - only select from currently possible info
-        return random.choice(moves)
+    def print_thought(self, prediction, card, opinion):
+        print("{} {} - {}".format(prediction, self.simplify_cards([card])[0], opinion) )
 
-class HanabiBot():
+    def find_card_idx(self, hand, card):
+        for i, c in enumerate(hand):
+            if self.equivalent(c, card, by="serial"):
+                return i
+
+        # !is_unique
+    def can_discard(self, hanabi, card_info):
+        if card_info['colour'] and card_info['number'] \
+           and not self.is_required(hanabi, (card_info['colour'], card_info['number'])):
+                return True # if we know exact card and it's not required, discard
+        if self.is_junk(hanabi, card_info):
+                return True # if we know number is not required, discard
+        return False
+
+    def is_junk(self, hanabi, card_info):
+        """returns true if there's no possible benefit to keeping card"""
+        number = card_info['number']
+        colour = card_info['colour']
+        if number and len([c for c in hanabi.playable_cards() if c[1] <= number]) == 0:
+            return True  # if all playable_cards are greater than card, discard
+        if colour and len([c for c in hanabi.playable_cards() if c[0] == colour]) == 0:
+            return True  # if this card's pile is complete, discard
+
+        #todo - work out what else we can deduce from colour/number-only plus discard pile and other hands
+        if colour and number:
+            next_for_colour = [c for c in hanabi.playable_cards() if c[0]==colour and c[1]<=number]
+            if not len(next_for_colour):
+                return True # Should discard if colour's pile is complete
+            for x in range(next_for_colour[0][1], number):
+                if self.count_in_play(hanabi, (colour, x)) == 0:
+                    return True # Should discard if a lower card needed for pile is fully discarded
+        return False
+
+        # is_not_playable
+    def is_playable(self, playable_cards, colour=None, number=None):
+        if number and len([c for c in playable_cards if c[1] == number]):
+            return True
+        if colour and len([c for c in playable_cards if c[0] == colour]):
+            return True
+        return False
+
+        # is_playable
+    def number_means_playable(self, number, playable_cards):
+        #todo: subtract all discarded and other-hand cards to know if we must be able to play
+        return len([c for c in playable_cards if c[1]==number]) == 5
+
+    def is_required(self, hanabi, card):
+        """returns true if discarding this card would make completing the game impossible"""
+        card_info = {'colour': card[0], 'number': card[1]}
+        if self.is_junk(hanabi, card_info):
+            return False
+        if self.count_in_play(hanabi, card) == 1:
+            return True
+        return False
+
+    def count_in_play(self, hanabi, card):
+        num_discarded = len([c for c in hanabi.discard_pile if self.equivalent(c, card)])
+        return hanabi.scarcity(card[1]) - num_discarded
+
+    def equivalent(self, card1, card2, by='both'):
+        eq = {}
+        eq['colour'] = card1[0]==card2[0]
+        eq['number'] = card1[1]==card2[1]
+        eq['both']   = eq['colour'] and eq['number']
+        if by == "serial":
+            eq['serial'] = eq['both'] and card1[2]==card2[2]
+        return eq[by]
+
+    def simplify_cards(self, cards):
+        """ strips serial number from cards, so [('red', 2, 1)] becomes [('red', 2)]
+        """
+        return [(c[0], c[1]) for c in cards]
+
+    def desimplify_card(self, card, cards):
+        """ restores serial number to card based on finding match in
+            cards provided, so [('red', 2)] becomes [('red', 2, 1)] if
+            the latter exists in cards
+        """
+        return [c for c in cards if self.equivalent(c, card)][0]
+
+
+class HanabiBasicBot(HanabiBotBase):
     """ Strategy:
         next player knows something to play?
             no  = you could tell them something so they would?
@@ -141,14 +186,6 @@ median: 21.0, mean: 20.1, stdev: 2.9
         discard_card = self.will_discard(hanabi, my_hand, my_info)
         return self.format_move(my_hand, 'discard', discard_card)
 
-    def print_thought(self, prediction, card, opinion):
-        print("{} {} - {}".format(prediction, self.simplify_cards([card])[0], opinion) )
-
-    def find_card_idx(self, hand, card):
-        for i, c in enumerate(hand):
-            if self.equivalent(c, card, by="serial"):
-                return i
-
     def format_move(self, hand, action, card, next_player_id=None, next_info=None, playable_cards=None):
         hand_letter = 'abcde'[self.find_card_idx(hand, card)]
         if action == 'discard':
@@ -195,7 +232,7 @@ median: 21.0, mean: 20.1, stdev: 2.9
             or self.number_means_playable(known_card[1], playable_cards):
                 sure_hand.append(card)
                 continue
-            elif self.should_discard(hanabi, card_info):
+            elif self.is_junk(hanabi, card_info):
                 junk_hand.append(card)
                 continue
             elif card_info['colour'] and card_info['number']:
@@ -229,16 +266,6 @@ median: 21.0, mean: 20.1, stdev: 2.9
         if len(maybe_hand):
             return maybe_hand[-1]
 
-    def can_discard(self, hanabi, card_info):
-        if card_info['colour'] and card_info['number'] \
-           and not self.is_required(hanabi, (card_info['colour'], card_info['number'])):
-                ##print('not required')
-                return True # if we know exact card and it's not required, discard
-        if self.should_discard(hanabi, card_info):
-                ##print('number done')
-                return True # if we know number is not required, discard
-        return False
-
     def will_discard(self, hanabi, hand, hand_info):
         for idx, card in enumerate(hand):
             if self.can_discard(hanabi, hand_info[card]):
@@ -258,67 +285,45 @@ median: 21.0, mean: 20.1, stdev: 2.9
         if next_can_play:
             return self.desimplify_card(next_can_play[0], hand)
 
-    def should_discard(self, hanabi, card_info):
-        """returns true if there's no possible benefit to keeping card"""
-        number = card_info['number']
-        colour = card_info['colour']
-        if number and len([c for c in hanabi.playable_cards() if c[1] <= number]) == 0:
-            return True  # if all playable_cards are greater than card, discard
-        if colour and len([c for c in hanabi.playable_cards() if c[0] == colour]) == 0:
-            return True  # if this card's pile is complete, discard
+class HanabiRandomBot():
+    """ Strategy:
+        Choose a random move from all possible moves, play it
 
-        #todo - work out what else we can deduce from colour/number-only plus discard pile and other hands
-        if colour and number:
-            next_for_colour = [c for c in hanabi.playable_cards() if c[0]==colour and c[1]<=number]
-            if not len(next_for_colour):
-                return True # Should discard if colour's pile is complete
-            for x in range(next_for_colour[0][1], number):
-                if self.count_in_play(hanabi, (colour, x)) == 0:
-                    return True # Should discard if a lower card needed for pile is fully discarded
-        return False
+2 x HanabiRandomBot playing, starting seed aaaaa for 1000 reps
+ 0 : 353 ██████████████████████████████████████████████████ eg:LLGW9
+ 1 : 308 ███████████████████████████████████████████ eg:Xw9dX
+ 2 : 187 ██████████████████████████ eg:0CXrT
+ 3 : 103 ██████████████ eg:dLRnq
+ 4 :  30 ████ eg:zP0pR
+ 5 :  14 █ eg:yRkuP
+ 6 :   4  eg:IqNhD
+ 7 :   1  eg:rxGHi
+ 8 :
+ 9 :
+10 :
+11 :
+12 :
+13 :
+14 :
+15 :
+16 :
+17 :
+18 :
+19 :
+20 :
+21 :
+22 :
+23 :
+24 :
+25 :
+median: 1.0, mean: 1.2, stdev: 1.2
+    """
+    def get_move(self, hanabi):
+        moves = [a+b for a in 'pd' for b in 'abcde']
+        if hanabi.clocks:
+            id     = hanabi.next_player_id()
+            moves += [str(id)+str(b) for b in range(1,6)]
+            moves += [str(id)+b[0] for b in hanabi.game_colours]
+            #todo - only select from currently possible info
+        return random.choice(moves)
 
-    def is_playable(self, playable_cards, colour=None, number=None):
-        if number and len([c for c in playable_cards if c[1] == number]):
-            return True
-        if colour and len([c for c in playable_cards if c[0] == colour]):
-            return True
-        return False
-
-    def number_means_playable(self, number, playable_cards):
-        #todo: subtract all discarded and other-hand cards to know if we must be able to play
-        return len([c for c in playable_cards if c[1]==number]) == 5
-
-    def is_required(self, hanabi, card):
-        """returns true if discarding this card would make completing the game impossible"""
-        card_info = {'colour': card[0], 'number': card[1]}
-        if self.should_discard(hanabi, card_info):
-            return False
-        if self.count_in_play(hanabi, card) == 1:
-            return True
-        ##print("{} x {} left in play".format(self.count_in_play(hanabi, card), card))
-        return False
-
-    def count_in_play(self, hanabi, card):
-        num_discarded = len([c for c in hanabi.discard_pile if self.equivalent(c, card)])
-        return hanabi.scarcity(card[1]) - num_discarded
-
-    def equivalent(self, card1, card2, by='both'):
-        eq = {}
-        eq['colour'] = card1[0]==card2[0]
-        eq['number'] = card1[1]==card2[1]
-        eq['both']   = eq['colour'] and eq['number']
-        if by == "serial":
-            eq['serial'] = eq['both'] and card1[2]==card2[2]
-        return eq[by]
-
-    def simplify_cards(self, cards):
-        """ strips serial number from cards, so [('red', 2, 1)] becomes [('red', 2)]
-        """
-        return [(c[0], c[1]) for c in cards]
-
-    def desimplify_card(self, card, cards):
-        """ restores serial number to card based on finding match in
-            cards provided, so [('red', 2)] becomes [('red', 2, 1)] if
-            the latter exists in cards
-        """
-        return [c for c in cards if self.equivalent(c, card)][0]
