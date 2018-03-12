@@ -5,20 +5,45 @@ class HanabiBotBase():
     """Bot base class providing utility methods but no strategy"""
 
     def print_thought(self, prediction, card, opinion):
+        """composes a string describing bot's thoughts and outputs"""
         print("{} {} - {}".format(prediction, self.simplify_cards([card])[0], opinion) )
 
     def find_card_idx(self, hand, card):
+        """returns index of card equivalent in hand"""
         for i, c in enumerate(hand):
             if self.equivalent(c, card, by="serial"):
                 return i
 
-        # !is_unique
     def can_discard(self, hanabi, card_info):
+        """returns true if the card can be discarded without affecting max possible score"""
         if card_info['colour'] and card_info['number'] \
            and not self.is_required(hanabi, (card_info['colour'], card_info['number'])):
                 return True # if we know exact card and it's not required, discard
         if self.is_junk(hanabi, card_info):
                 return True # if we know number is not required, discard
+        return False
+
+    def is_required(self, hanabi, card):
+        """returns true if discarding this card would make completing the game impossible"""
+        card_info = {'colour': card[0], 'number': card[1]}
+        if self.is_junk(hanabi, card_info):
+            return False
+        if self.count_in_play(hanabi, card) == 1:
+            return True
+        return False
+
+    def is_playable(self, playable_cards, number=None):
+        #todo: subtract all discarded and other-hand cards to know if we must be able to play
+        return len([c for c in playable_cards if c[1]==number]) == 5
+
+    def is_not_playable(self, playable_cards, colour=None, number=None):
+        """returns true if the provided number or colour proves the card can't be played"""
+        if colour and len([c for c in playable_cards if c[0] == colour]) == 0:
+            return True # a known colour that's not in playable cards can't be played
+        if number and len([c for c in playable_cards if c[1] == number]) == 0:
+            return True # a known number that's not in playable cards can't be played
+        # if number and colour and (colour, number) not in playable_cards:
+            # return True # if both colour and number are known, it can't be played unless playable_card
         return False
 
     def is_junk(self, hanabi, card_info):
@@ -40,33 +65,13 @@ class HanabiBotBase():
                     return True # Should discard if a lower card needed for pile is fully discarded
         return False
 
-        # is_not_playable
-    def is_playable(self, playable_cards, colour=None, number=None):
-        if number and len([c for c in playable_cards if c[1] == number]):
-            return True
-        if colour and len([c for c in playable_cards if c[0] == colour]):
-            return True
-        return False
-
-        # is_playable
-    def number_means_playable(self, number, playable_cards):
-        #todo: subtract all discarded and other-hand cards to know if we must be able to play
-        return len([c for c in playable_cards if c[1]==number]) == 5
-
-    def is_required(self, hanabi, card):
-        """returns true if discarding this card would make completing the game impossible"""
-        card_info = {'colour': card[0], 'number': card[1]}
-        if self.is_junk(hanabi, card_info):
-            return False
-        if self.count_in_play(hanabi, card) == 1:
-            return True
-        return False
-
     def count_in_play(self, hanabi, card):
+        """returns the number of specified card which have not been discarded"""
         num_discarded = len([c for c in hanabi.discard_pile if self.equivalent(c, card)])
         return hanabi.scarcity(card[1]) - num_discarded
 
     def equivalent(self, card1, card2, by='both'):
+        """returns true if supplied cards are the same based on 'by' criterion"""
         eq = {}
         eq['colour'] = card1[0]==card2[0]
         eq['number'] = card1[1]==card2[1]
@@ -193,7 +198,7 @@ median: 21.0, mean: 20.1, stdev: 2.9
         elif action == 'play':
             return 'p'+hand_letter
         elif action == 'inform':
-            if playable_cards and self.number_means_playable(card[1], playable_cards):
+            if playable_cards and self.is_playable(playable_cards, card[1]):
                 attr = 1
             elif next_info[card]['number'] or next_info[card]['colour']:
               # if has number tell colour, and vice versa
@@ -229,7 +234,7 @@ median: 21.0, mean: 20.1, stdev: 2.9
                     told_to_hold += [known_card[0], known_card[1]]
 
             if known_card in playable_cards \
-            or self.number_means_playable(known_card[1], playable_cards):
+            or self.is_playable(playable_cards, known_card[1]):
                 sure_hand.append(card)
                 continue
             elif self.is_junk(hanabi, card_info):
@@ -241,8 +246,8 @@ median: 21.0, mean: 20.1, stdev: 2.9
             if self.can_discard(hanabi, card_info):
                 continue # don't consider playing a card we know can be disposed of
 
-            number_maybe = self.is_playable(playable_cards, number=card_info['number'])
-            colour_maybe = self.is_playable(playable_cards, colour=card_info['colour'])
+            number_maybe_playable = card_info['number'] and not self.is_not_playable(playable_cards, number=card_info['number'])
+            colour_maybe_playable = card_info['colour'] and not self.is_not_playable(playable_cards, colour=card_info['colour'])
 
             # if a 1 is the newest known card, assume we only know because it's playable
             # (because we don't inform to avoid discarding ones!)
@@ -251,12 +256,14 @@ median: 21.0, mean: 20.1, stdev: 2.9
             else:
                 trailing_1_card = None
 
-            if idx == 4 and oldest_unknown_idx is None and (colour_maybe or number_maybe):
+            play_possible = colour_maybe_playable or number_maybe_playable
+            if idx == 4 and oldest_unknown_idx is None and play_possible:
                 maybe_hand.append(card) # If all cards have info about, consider playing newest
 
             if oldest_unknown_idx is not None \
-            and (  (colour_maybe and card_info['colour'] not in told_to_hold) \
-                or (number_maybe and card_info['number'] not in told_to_hold) ):
+            and play_possible \
+            and card_info['colour'] not in told_to_hold \
+            and card_info['number'] not in told_to_hold:
                 maybe_hand.append(card)
 
         if len(sure_hand):
