@@ -39,8 +39,8 @@ def bot_game(bot_class, num_players, seed, reps):
         sys.stdout = mystdout = StringIO()
         hanabi = HanabiGame(num_players, seed)
         while hanabi.is_game_over() == False:
-            bot = bot_class()
-            play_move(hanabi, bot.get_move(hanabi))
+            bot = bot_class(hanabi)
+            play_move(hanabi, bot.get_move())
         scores.append((seed, hanabi.score(), len(hanabi.deck)))
         seed = hanabi.random_seed()
         sys.stdout = sys.__stdout__
@@ -91,7 +91,7 @@ def game_loop(hanabi, session, bot_class=None):
             print_player_view(hanabi, move_descriptions, player_id)
 
             if bot_class:
-                move = bot_class().get_move(hanabi)
+                move = bot_class(hanabi).get_move()
                 input("Bot thinks '{}', press enter to play...".format(move))
             else:
                 move = get_local_move(hanabi, player_id)
