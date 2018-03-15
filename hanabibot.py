@@ -4,11 +4,13 @@ import random
 class HanabiBotBase():
     """Bot base class providing utility methods but no strategy"""
 
-    def __init__(self, hanabi):
-        """ this method shold not be overridden by bots, if you want to initialise
+    def __init__(self, hanabi, cheat=False):
+        """ copies game state out of hanabi object that the bot is allowed to see
+
+            this method shold not be overridden by bots, if you want to initialise
             stuff override setup() instead
         """
-        if self.__init__.__func__ is not HanabiBotBase.__init__:
+        if not cheat and self.__init__.__func__ is not HanabiBotBase.__init__:
             raise Exception # Don't let init be overridden
 
         self.clocks            = hanabi.clocks
@@ -53,6 +55,16 @@ class HanabiBotBase():
             if self.equivalent(c, card, by="serial"):
                 return i
 
+    def format_move(self, action, index=None, player_id=None, info=None):
+        """returns two-char string move"""
+        hand_letter = 'abcde'[index] if index is not None else None
+        if action == 'discard':
+            return 'd'+hand_letter
+        elif action == 'play':
+            return 'p'+hand_letter
+        elif action == 'inform':
+            return "{}{}".format(player_id+1, info)
+
     def can_discard(self, card_info):
         """returns true if the card can be discarded without affecting max possible score"""
         if card_info['colour'] and card_info['number'] \
@@ -81,7 +93,7 @@ class HanabiBotBase():
             return True # a known colour that's not in playable cards can't be played
         if number and len([c for c in playable_cards if c[1] == number]) == 0:
             return True # a known number that's not in playable cards can't be played
-        if number and colour and (colour, number) not in playable_cards:
+        if colour and number and (colour, number) not in playable_cards:
             return True # if both colour and number are known, it can't be played unless playable_card
         return False
 
@@ -172,7 +184,7 @@ class HanabiBasicBot(HanabiBotBase):
 23 :  83 ████████████████████ eg: WbSoO
 24 :  27 ██████ eg: aaaaa
 25 :   8 █ eg: 1rC5V
-93.0% of games completed deck
+7.4% of games ran out of lives
 median: 21.0, mean: 20.0, stdev: 3.0
     """
 
@@ -239,15 +251,6 @@ median: 21.0, mean: 20.0, stdev: 3.0
           match_numbers = len([c for c in hand if self.equivalent(c, card, by="number")])
           attr = int(match_colours >= match_numbers)
         return str(card[attr])[0]
-
-    def format_move(self, action, index=None, player_id=None, info=None):
-        hand_letter = 'abcde'[index] if index is not None else None
-        if action == 'discard':
-            return 'd'+hand_letter
-        elif action == 'play':
-            return 'p'+hand_letter
-        elif action == 'inform':
-            return "{}{}".format(player_id+1, info)
 
     def will_play_idx(self, hand_info, playable_cards):
         maybe_hand   = []
@@ -331,7 +334,60 @@ median: 21.0, mean: 20.0, stdev: 3.0
             card = self.desimplify_card(next_can_play[0], hand)
             return hand.index(card)
 
-#todo - make cheatbot which looks at its own hand to establish theoretical game score ceiling
+class HanabiCheatBot(HanabiBotBase):
+    """ looks at its own hand to make best move it can
+
+2 x HanabiCheatBot playing, starting seed aaaaa for 1000 reps
+ 0 :
+ 1 :
+ 2 :
+ 3 :
+ 4 :
+ 5 :
+ 6 :
+ 7 :
+ 8 :
+ 9 :
+10 :
+11 :
+12 :
+13 :
+14 :   1  eg: cJyRH
+15 :   1  eg: vvBaX
+16 :   5  eg: GalH0
+17 :   3  eg: HWntT
+18 :  15 █ eg: uh0U3
+19 :  19 ██ eg: URb3q
+20 :  24 ███ eg: Ysjs2
+21 :  68 ████████ eg: iGzW5
+22 : 115 ███████████████ eg: GcaJJ
+23 : 155 ████████████████████ eg: ZGS4Z
+24 : 212 ███████████████████████████ eg: KF4bJ
+25 : 382 ██████████████████████████████████████████████████ eg: aaaaa
+0.0% of games ran out of lives
+median: 24.0, mean: 23.4, stdev: 1.8
+    """
+    def __init__(self, hanabi):
+        self.hanabi = hanabi
+        super().__init__(hanabi, cheat=True)
+
+    def get_move(self):
+        hand = self.hanabi.current_hand()
+        playable_idxs = [i for i,c in enumerate(hand) if self.simplify_cards([c])[0] in self.playable_cards]
+        if len(playable_idxs):
+            return self.format_move('play', playable_idxs[0])
+
+        junk_idxs = [i for i,c in enumerate(hand) if self.is_junk({'colour':c[0],'number':c[1]})]
+        if len(junk_idxs):
+            return self.format_move('discard', junk_idxs[0])
+
+        discardable_idxs = [i for i,c in enumerate(hand) if self.can_discard({'colour':c[0],'number':c[1]})]
+        if len(discardable_idxs):
+            return self.format_move('discard', discardable_idxs[0])
+
+        # if every card is required, discard highest
+        return self.format_move('discard', sorted(enumerate(hand), key=lambda c : -c[1][1])[0][0])
+
 
 class HanabiRandomBot():
     """ Strategy:
