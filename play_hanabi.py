@@ -41,7 +41,7 @@ def bot_game(bot_class, num_players, seed, reps):
         while hanabi.is_game_over() == False:
             bot = bot_class(hanabi)
             play_move(hanabi, bot.get_move())
-        scores.append((seed, hanabi.score(), len(hanabi.deck)))
+        scores.append((seed, hanabi.score(), hanabi.lives))
         seed = hanabi.random_seed()
         sys.stdout = sys.__stdout__
 
@@ -64,7 +64,7 @@ def render_scores(scores):
         bar_text  = '{: >3} {} {}'.format(freq_score[i] if freq_score[i] else '', "█"*bar_width, example)
         op.append("{: >2} : {}".format(i, bar_text))
     scores_list = [s[1] for s in scores]
-    op.append("{:.1%} of games completed deck".format(len([s for s in scores if s[2]==0])/len(scores)))
+    op.append("{:.1%} of games ran out of lives".format(len([s for s in scores if s[2]<0])/len(scores)))
     if len(scores_list) > 1:
         op.append("median: {}, mean: {:.1f}, stdev: {:.1f}".format(median(scores_list), \
                                                                  mean(scores_list), \
