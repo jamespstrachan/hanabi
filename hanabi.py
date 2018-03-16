@@ -1,22 +1,27 @@
 """Hanabi module providing a HanabiGame class along with a HanabiServer class for remote games"""
-import random, string, json, datetime
+import random
+import string
+import json
+import datetime
 from time import sleep
+
 import requests
+
 
 class HanabiGame():
     """Administers a game of Hanabi"""
-    game_colours = ["red","yellow","green","blue","white"]
+    game_colours = ["red", "yellow", "green", "blue", "white"]
     max_clocks   = 8
     score_translations = {
-            0:  "horrible, booed by the crowd...",
-            6:  "mediocre, just a spattering of applause.",
-            11: "honourable, but will not be remembered for very long...",
-            16: "excellent, crowd pleasing.",
-            21: "amazing, will be remembered for a very long time!",
-            25: "legendary, everyone left speechless, stars in their eyes",
-        }
+        0:  "horrible, booed by the crowd...",
+        6:  "mediocre, just a spattering of applause.",
+        11: "honourable, but will not be remembered for very long...",
+        16: "excellent, crowd pleasing.",
+        21: "amazing, will be remembered for a very long time!",
+        25: "legendary, everyone left speechless, stars in their eyes",
+    }
 
-    def __init__(self, num_players = 2, seed = None):
+    def __init__(self, num_players=2, seed=None):
         self.lives        = 2
         self.clocks       = 8
         self.turn         = 0
@@ -25,23 +30,23 @@ class HanabiGame():
         self.num_players  = num_players
         self.seed         = seed if seed is not None else self.random_seed()
         self.info         = [{} for _ in range(num_players)]
-        self.table        = [[(colour,0)] for colour in self.game_colours]
+        self.table        = [[(colour, 0)] for colour in self.game_colours]
         self.discard_pile = []
         self.hands        = [[] for _ in range(self.num_players)]
         self.info         = [{} for _ in self.hands]
-        self.deck         = [(i,j,k) for i in self.game_colours
-                                     for j in range(1, 6)
-                                     for k in range(0, self.scarcity(j))]
+        self.deck         = [(i, j, k) for i in self.game_colours
+                                       for j in range(1, 6)
+                                       for k in range(0, self.scarcity(j))]
         random.seed(self.seed)
         random.shuffle(self.deck)
-        [self.replenish_hand(i) for _ in range(5) for i,_ in enumerate(self.hands)]
-        #self.deck = self.deck[-3:]## helpful to shorten deck for testing
+        [self.replenish_hand(i) for _ in range(5) for i, _ in enumerate(self.hands)]
+        # self.deck = self.deck[-3:] ## helpful to shorten deck for testing
 
     def is_game_over(self):
         return bool(self.end_message())
 
     def end_message(self):
-        # todo - perhaps these should be enumerated as codes for something else to translate and render?
+        # todo - perhaps these should be enumerated as codes for something else to translate?
         if self.lives < 0:
             return "you ran out of lives"
         if self.turn == self.final_turn:
@@ -72,7 +77,7 @@ class HanabiGame():
         return self.turn % self.num_players
 
     def next_player_id(self):
-        return (self.current_player_id()+1)%self.num_players
+        return (self.current_player_id() + 1) % self.num_players
 
     def current_hand(self):
         return self.hands[self.current_player_id()]
@@ -81,21 +86,20 @@ class HanabiGame():
         return self.hands[self.next_player_id()]
 
     def playable_cards(self):
-        return [(pile[0][0], pile[-1][1]+1) for pile in self.table if pile[-1][1] !=  5]
+        return [(pile[0][0], pile[-1][1] + 1) for pile in self.table if pile[-1][1] != 5]
 
     def possible_info(self, hand_id, type='colour'):
-        return set([card[0 if type=='colour' else 1] for card in self.hands[hand_id]])
+        return set([card[0 if type == 'colour' else 1] for card in self.hands[hand_id]])
 
     def play(self, hand_index):
         card = self.take_hand_card(hand_index)
         pile = self.table[self.game_colours.index(card[0])]
-        if ( len(pile) == 0 and card[1] == 1 )\
-        or ( pile[-1][1] == card[1] - 1 ):
+        if (len(pile) == 0 and card[1] == 1) or (pile[-1][1] == card[1] - 1):
             pile.append(card)
             if card[1] == 5:
                 self.add_clock()
         else:
-            self.lives -=1
+            self.lives -= 1
             self.discard_pile.append(card)
         self.turn += 1
 
@@ -118,13 +122,13 @@ class HanabiGame():
             elif info.isdigit() and not hand_info['number']:
                 nn = hand_info['not_number']
                 nn.add(int(info))
-                if len(nn) == 4: # four is-nots = one is!
-                    hand_info['number']     = list(set([1,2,3,4,5]) - nn)[0]
+                if len(nn) == 4:  # four is-nots = one is!
+                    hand_info['number']     = list(set(range(1, 6)) - nn)[0]
                     hand_info['not_number'] = set()
             elif not info.isdigit() and not hand_info['colour']:
                 nc = hand_info['not_colour']
                 nc.add(info)
-                if len(nc) == 4: # four is-nots = one is!
+                if len(nc) == 4:  # four is-nots = one is!
                     hand_info['colour']     = list(set(self.game_colours) - nc)[0]
                     hand_info['not_colour'] = set()
         self.clocks -= 1
@@ -143,9 +147,15 @@ class HanabiGame():
         if len(self.deck):
             card = self.deck.pop()
             self.hands[player_id].append(card)
-            self.info[player_id][card] = {'colour':None, 'number':None, 'not_number':set(), 'not_colour':set()}
+            self.info[player_id][card] = {
+                'colour': None,
+                'number': None,
+                'not_number': set(),
+                'not_colour': set(),
+            }
         elif not self.final_turn:
             self.final_turn = self.turn + self.num_players
+
 
 class HanabiSession():
     """Makes connection and manages sending to and polling from a game server object"""
@@ -160,12 +170,13 @@ class HanabiSession():
         self.hanabi     = hanabi
         self.player_id  = 0
         game_content = {
-                           "seed":        hanabi.seed,
-                           "num_players": hanabi.num_players,
-                           "players":     [creator_name],
-                           "moves":       []
-                        }
-        self.game_title = "game by {} on {}".format(creator_name, datetime.datetime.now().strftime('%c'))
+            "seed":        hanabi.seed,
+            "num_players": hanabi.num_players,
+            "players":     [creator_name],
+            "moves":       []
+        }
+        date            = datetime.datetime.now().strftime('%c')
+        self.game_title = "game by {} on {}".format(creator_name, date)
         self.server.request_game(self.game_title, game_content, create=True)
 
     def join_game(self, game_title, player_name):
@@ -180,7 +191,7 @@ class HanabiSession():
 
     def await_players(self):
         print("waiting for players", end='', flush=True)
-        if self.player_id < self.hanabi.num_players - 1: # if we're not the final joiner
+        if self.player_id < self.hanabi.num_players - 1:  # if we're not the final joiner
             sleep(self.server.before_poll_delay)
         count_checks = 0
         while True:
@@ -214,11 +225,13 @@ class HanabiSession():
                 moves = game_content['moves'][self.hanabi.turn:]
                 print(" found new moves {}".format(moves))
                 return moves
-            turns_to_wait = (self.player_id - self.hanabi.current_player_id()) % self.hanabi.num_players
+            current_id    = self.hanabi.current_player_id()
+            turns_to_wait = (self.player_id - current_id) % self.hanabi.num_players
             if count_checks % 20 == 19:
                 input("\npaused, press enter to resume")
                 print("resumed", end='', flush=True)
-            sleep(3*turns_to_wait)
+            sleep(3 * turns_to_wait)
+
 
 class HanabiGistServer():
     """Wraps a Github gist to make it into a game server"""
@@ -226,38 +239,43 @@ class HanabiGistServer():
     newgame_prefix = "New "
 
     def __init__(self, url, credentials, is_test=False):
-        assert not is_test, "Running in automated testing mode, shouldn't be accessing real remote servers"
+        assert not is_test, \
+            "Running in automated testing mode, shouldn't be accessing real remote servers"
         self.url         = "{}/{}".format(url, credentials.tag)
         self.credentials = credentials
         self.headers     = {"Authorization": "token {}".format(credentials.token)}
 
     def request_game_list(self, new=False):
         all_filenames = dict.keys(requests.get(self.url, headers=self.headers).json()['files'])
-        if new:
-            return [f[len(self.newgame_prefix):] for f in all_filenames if f.find(self.newgame_prefix) == 0]
-        else:
-            return [f for f in all_filenames if f.find(self.newgame_prefix) == -1]
+        filenames = []
+        for filename in all_filenames:
+            if filename.find(self.newgame_prefix) == 0:
+                if new:
+                    filenames.append(filename[len(self.newgame_prefix):])
+            elif not new:
+                    filenames.append(filename)
+        return filenames
 
-    def request_game(self, game_title, updated_content=None, create=False, join=False ):
+    def request_game(self, game_title, updated_content=None, create=False, join=False):
         payload = None
-        filename = (self.newgame_prefix if join else '')  + game_title
+        filename = (self.newgame_prefix if join else '') + game_title
 
         if updated_content:
             new_filename = None
             if create:
                 filename = self.newgame_prefix + game_title
             elif len(updated_content['players']) == updated_content['num_players']:
-                new_filename = game_title # update filename if all players have joined
+                new_filename = game_title  # update filename if all players have joined
 
             payload = {
-                    "files":{
-                        filename:{
-                            "filename": new_filename if new_filename else filename,
-                            # todo sort order https://stackoverflow.com/questions/18871217/how-to-custom-sort-a-list-of-dict-to-use-in-json-dumps
-                            "content": json.dumps(updated_content, indent=4),
-                            }
-                        }
+                "files": {
+                    filename: {
+                        "filename": new_filename if new_filename else filename,
+                        # todo sort order, see https://tinyurl.com/y89l6t77
+                        "content": json.dumps(updated_content, indent=4),
                     }
+                }
+            }
 
         verb     = "POST" if create else ("PATCH" if updated_content else "GET")
         response = requests.request(verb, self.url, headers=self.headers, json=payload)
@@ -277,18 +295,19 @@ class MockHanabiServer():
     seed  = "iFduD"
     games = {
         'Test game for two players': {
-           "seed":        seed,
-           "num_players": 2,
-           "players":     ["Silly Bot"],
-           "moves":       []
+            "seed":        seed,
+            "num_players": 2,
+            "players":     ["Silly Bot"],
+            "moves":       []
         },
         'Test game for three players': {
-           "seed":        seed,
-           "num_players": 3,
-           "players":     ["Silly Bot","Dumb Bot"],
-           "moves":       []
+            "seed":        seed,
+            "num_players": 3,
+            "players":     ["Silly Bot", "Dumb Bot"],
+            "moves":       []
         },
     }
+
     def __init__(self, url, credentials, is_test=False):
         # Don't add fake delay if being tested by script
         self.is_test = is_test
@@ -296,15 +315,17 @@ class MockHanabiServer():
     def request_game_list(self, new=False):
         return sorted(list(self.games), reverse=True)
 
-    def request_game(self, game_title, updated_content=None, create=False, join=False ):
+    def request_game(self, game_title, updated_content=None, create=False, join=False):
         if create:
-            game = updated_content
-            game['players'].extend(['Bot {}'.format(str(i+1)) for i in range(game['num_players']-1)])
+            game      = updated_content
+            bot_names = ['Bot {}'.format(str(i + 1)) for i in range(game['num_players'] - 1)]
+            game['players'].extend(bot_names)
             self.games[game_title] = game
         else:
             game = self.games[game_title]
             if updated_content:
-                updated_content['moves'].extend(['da','db','dc','dd','de'][0:game['num_players']-1])
+                fake_moves = ['da', 'db', 'dc', 'dd', 'de'][0:game['num_players'] - 1]
+                updated_content['moves'].extend(fake_moves)
                 game = updated_content
         self.sleep(1)
         return game

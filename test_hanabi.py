@@ -1,6 +1,7 @@
 import unittest
 from hanabi import HanabiGame
 
+
 class HanabiTestCase(unittest.TestCase):
     """Tests for `hanabi.py`."""
 
@@ -15,22 +16,22 @@ class HanabiTestCase(unittest.TestCase):
         h = HanabiGame(2, 'aaaaa')
         lives = h.lives
         h.play(1)
-        self.assertEqual(lives-1, h.lives, "Playing non-valid card loses a life")
+        self.assertEqual(lives - 1, h.lives, "Playing non-valid card loses a life")
 
     def test_informing_costs_clock(self):
         """ informing card costs a clock """
         h = HanabiGame(2, 'aaaaa')
         clocks = h.clocks
-        h.inform(1,"1")
-        self.assertEqual(clocks-1, h.clocks)
+        h.inform(1, "1")
+        self.assertEqual(clocks - 1, h.clocks)
 
     def test_discarding_card_adds_clock(self):
         """ discarding card adds clock, to max of 8 """
         h = HanabiGame(2, 'aaaaa')
-        h.inform(1,"1")
+        h.inform(1, "1")
         clocks = h.clocks
         h.discard(0)
-        self.assertEqual(clocks+1, h.clocks, "discarding card adds a clock")
+        self.assertEqual(clocks + 1, h.clocks, "discarding card adds a clock")
         h.discard(0)
         self.assertEqual(h.clocks, 8, "clocks can't be added above 8")
 
@@ -42,6 +43,7 @@ class HanabiTestCase(unittest.TestCase):
         self.assertFalse(h.is_game_over(), "Game is not over after two mistakes")
         h.play(1)
         self.assertTrue(h.is_game_over(), "Game is over after three mistakes")
+
 
 if __name__ == '__main__':
     unittest.main()

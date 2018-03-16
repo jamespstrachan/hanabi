@@ -1,6 +1,7 @@
 """A collection of bot classes to play hanabi with"""
 import random
 
+
 class HanabiBotBase():
     """Bot base class providing utility methods but no strategy"""
 
@@ -11,7 +12,7 @@ class HanabiBotBase():
             stuff override setup() instead
         """
         if not cheat and self.__init__.__func__ is not HanabiBotBase.__init__:
-            raise Exception # Don't let init be overridden
+            raise Exception  # Don't let init be overridden
 
         self.clocks            = hanabi.clocks
         self.discard_pile      = hanabi.discard_pile
@@ -39,15 +40,15 @@ class HanabiBotBase():
         my_playable_cards = []
         for idx, card in enumerate(self.playable_cards):
             seen_in_discard_pile = [x for x in self.discard_pile if self.equivalent(x, card)]
-            visible_hands        = [h for i,h in enumerate(hanabi.hands) if i!=self.my_id]
-            seen_in_other_hands  = [x for x in sum(visible_hands,[]) if self.equivalent(x,card)]
+            visible_hands        = [h for i, h in enumerate(hanabi.hands) if i != self.my_id]
+            seen_in_other_hands  = [x for x in sum(visible_hands, []) if self.equivalent(x, card)]
             if len(seen_in_discard_pile) + len(seen_in_other_hands) != hanabi.scarcity(card[1]):
                 my_playable_cards.append(card)
         return my_playable_cards
 
     def print_thought(self, prediction, card, opinion):
         """composes a string describing bot's thoughts and outputs"""
-        print("{} {} - {}".format(prediction, self.simplify_cards([card])[0], opinion) )
+        print("{} {} - {}".format(prediction, self.simplify_cards([card])[0], opinion))
 
     def find_card_idx(self, hand, card):
         """returns index of card equivalent in hand"""
@@ -59,19 +60,19 @@ class HanabiBotBase():
         """returns two-char string move"""
         hand_letter = 'abcde'[index] if index is not None else None
         if action == 'discard':
-            return 'd'+hand_letter
+            return 'd' + hand_letter
         elif action == 'play':
-            return 'p'+hand_letter
+            return 'p' + hand_letter
         elif action == 'inform':
-            return "{}{}".format(player_id+1, info)
+            return "{}{}".format(player_id + 1, info)
 
     def can_discard(self, card_info):
         """returns true if the card can be discarded without affecting max possible score"""
         if card_info['colour'] and card_info['number'] \
            and not self.is_required((card_info['colour'], card_info['number'])):
-                return True # if we know exact card and it's not required, discard
+                return True  # if we know exact card and it's not required, discard
         if self.is_junk(card_info):
-                return True # if we know number is not required, discard
+                return True  # if we know number is not required, discard
         return False
 
     def is_required(self, card):
@@ -84,17 +85,18 @@ class HanabiBotBase():
         return False
 
     def is_playable(self, playable_cards, number=None):
-        #todo: subtract all discarded and other-hand cards to know if we must be able to play
-        return len([c for c in playable_cards if c[1]==number]) == 5
+        # todo: subtract all discarded and other-hand cards to know if we must be able to play
+        return len([c for c in playable_cards if c[1] == number]) == 5
 
     def is_not_playable(self, playable_cards, colour=None, number=None):
         """returns true if the provided number or colour proves the card can't be played"""
         if colour and len([c for c in playable_cards if c[0] == colour]) == 0:
-            return True # a known colour that's not in playable cards can't be played
+            return True  # a known colour that's not in playable cards can't be played
         if number and len([c for c in playable_cards if c[1] == number]) == 0:
-            return True # a known number that's not in playable cards can't be played
+            return True  # a known number that's not in playable cards can't be played
         if colour and number and (colour, number) not in playable_cards:
-            return True # if both colour and number are known, it can't be played unless playable_card
+            # if both colour and number are known, it can't be played unless playable_card
+            return True
         return False
 
     def is_junk(self, card_info):
@@ -106,14 +108,16 @@ class HanabiBotBase():
         if colour and len([c for c in self.my_playable_cards if c[0] == colour]) == 0:
             return True  # if this card's pile is complete, discard
 
-        #todo - work out what else we can deduce from colour/number-only plus discard pile and other hands
+        # todo - work out what else we can deduce from colour/number-only
+        #       plus discard pile and other hands
         if colour and number:
-            next_for_colour = [c for c in self.my_playable_cards if c[0]==colour and c[1]<=number]
+            next_for_colour = [c for c in self.my_playable_cards
+                               if c[0] == colour and c[1] <= number]
             if not len(next_for_colour):
-                return True # Should discard if colour's pile is complete
+                return True  # Should discard if colour's pile is complete
             for x in range(next_for_colour[0][1], number):
                 if self.count_in_play((colour, x)) == 0:
-                    return True # Should discard if a lower card needed for pile is fully discarded
+                    return True  # Should discard if a lower card needed for pile is fully discarded
         return False
 
     def count_in_play(self, card):
@@ -124,11 +128,11 @@ class HanabiBotBase():
     def equivalent(self, card1, card2, by='both'):
         """returns true if supplied cards are the same based on 'by' criterion"""
         eq = {}
-        eq['colour'] = card1[0]==card2[0]
-        eq['number'] = card1[1]==card2[1]
+        eq['colour'] = card1[0] == card2[0]
+        eq['number'] = card1[1] == card2[1]
         eq['both']   = eq['colour'] and eq['number']
         if by == "serial":
-            eq['serial'] = eq['both'] and card1[2]==card2[2]
+            eq['serial'] = eq['both'] and card1[2] == card2[2]
         return eq[by]
 
     def simplify_cards(self, cards):
@@ -197,8 +201,11 @@ median: 21.0, mean: 20.0, stdev: 3.0
         will_play_idx = self.will_play_idx(next_info, playable_cards)
         if self.clocks > 0 and will_play_idx is None:
             i_will_play_idx = self.will_play_idx(self.my_info, my_playable_cards)
-            avoid_number    = self.my_info[i_will_play_idx]['number'] if i_will_play_idx is not None else -1
-            could_play_idx  = self.could_play_idx(next_hand, playable_cards, not_number=avoid_number)
+            avoid_number    = self.my_info[i_will_play_idx]['number'] \
+                              if i_will_play_idx is not None else -1
+            could_play_idx  = self.could_play_idx(next_hand,
+                                                  playable_cards,
+                                                  not_number=avoid_number)
             if could_play_idx is not None:
                 could_play_card = next_hand[could_play_idx]
                 self.print_thought("next could play", could_play_card, 'inform')
@@ -207,7 +214,8 @@ median: 21.0, mean: 20.0, stdev: 3.0
             else:
                 discard_idx  = self.will_discard_idx(next_info)
                 discard_card = next_hand[discard_idx]
-                if self.is_required(discard_card) or self.simplify_cards([discard_card])[0] in playable_cards:
+                is_playable  = self.simplify_cards([discard_card])[0] in playable_cards
+                if self.is_required(discard_card) or is_playable:
                     self.print_thought("next will discard", discard_card, 'inform')
                     # todo - should give info to make positive discard possible, else...
                     info = self.decide_info(discard_card, next_hand, next_info, playable_cards)
@@ -218,11 +226,7 @@ median: 21.0, mean: 20.0, stdev: 3.0
             if self.could_play_idx([will_play_card], playable_cards) is not None:
                 self.print_thought("next will play", will_play_card, 'ok')
             elif self.clocks > 0:
-                ## Tried logic to encourage different card if will_play is bad (rather than
-                ## informing more about will_play card), didn't seem to work but keeping ffr
-                # could_play_card = self.could_play(next_hand, playable_cards)
-                # if could_play_card and could_play_card[1] < will_play_card[1]: # if we can make play lower card
-                #    return self.format_move(next_hand, 'inform', could_play_card, next_player_id, next_info, playable_cards)
+                # todo - try to make play better card if possible
                 self.print_thought("next will play", will_play_card, 'inform')
                 info = self.decide_info(will_play_card, next_hand, next_info, playable_cards)
                 return self.format_move('inform', player_id=self.next_id, info=info)
@@ -241,15 +245,15 @@ median: 21.0, mean: 20.0, stdev: 3.0
         if playable_cards and self.is_playable(playable_cards, card[1]):
             attr = 1
         elif info[hand_idx]['number'] or info[hand_idx]['colour']:
-          # if has number tell colour, and vice versa
-          attr = 0 if info[hand_idx]['number'] else 1
-        elif card[1] in [1,5]:
-          attr = 1 # Always inform about 1s or 5s by number first
+            # if has number tell colour, and vice versa
+            attr = 0 if info[hand_idx]['number'] else 1
+        elif card[1] in [1, 5]:
+            attr = 1  # Always inform about 1s or 5s by number first
         else:
-          # tell the most specific type of info, prioritising numbers if equally specific
-          match_colours = len([c for c in hand if self.equivalent(c, card, by="colour")])
-          match_numbers = len([c for c in hand if self.equivalent(c, card, by="number")])
-          attr = int(match_colours >= match_numbers)
+            # tell the most specific type of info, prioritising numbers if equally specific
+            match_colours = len([c for c in hand if self.equivalent(c, card, by="colour")])
+            match_numbers = len([c for c in hand if self.equivalent(c, card, by="number")])
+            attr = int(match_colours >= match_numbers)
         return str(card[attr])[0]
 
     def will_play_idx(self, hand_info, playable_cards):
@@ -260,50 +264,52 @@ median: 21.0, mean: 20.0, stdev: 3.0
         oldest_unknown_idx = None
         trailing_1_card    = None
 
-        for idx,card_info in enumerate(hand_info):
-            known_card = (card_info['colour'] if card_info['colour'] else 'gray', \
-                              card_info['number'] if card_info['number'] else -1)
+        for idx, card_info in enumerate(hand_info):
+            colour = card_info['colour']
+            number = card_info['number']
+            known_card = (colour if colour else 'gray', number if number else -1)
 
             if oldest_unknown_idx is None:
-                if known_card == ('gray',-1):
+                if known_card == ('gray', -1):
                     oldest_unknown_idx = idx
                     if trailing_1_card is not None:
                         maybe_hand.append(trailing_1_card)
                         trailing_1_card = None
-                elif known_card[1] != 1: # We won't be told to hold ones
+                elif known_card[1] != 1:  # We won't be told to hold ones
                     told_to_hold += [known_card[0], known_card[1]]
 
             if known_card in playable_cards \
-            or self.is_playable(playable_cards, known_card[1]):
+                    or self.is_playable(playable_cards, known_card[1]):
                 sure_hand.append(idx)
                 continue
             elif self.is_junk(card_info):
                 junk_hand.append(idx)
                 continue
-            elif card_info['colour'] and card_info['number']:
-                continue #if it's fully known and not playable, don't play it
+            elif colour and number:
+                continue  # if it's fully known and not playable, don't play it
 
             if self.can_discard(card_info):
-                continue # don't consider playing a card we know can be disposed of
+                continue  # don't consider playing a card we know can be disposed of
 
-            number_maybe_playable = card_info['number'] and not self.is_not_playable(playable_cards, number=card_info['number'])
-            colour_maybe_playable = card_info['colour'] and not self.is_not_playable(playable_cards, colour=card_info['colour'])
+            colour_may_play = colour and not self.is_not_playable(playable_cards, colour=colour)
+            number_may_play = number and not self.is_not_playable(playable_cards, number=number)
 
             # if a 1 is the newest known card, assume we only know because it's playable
             # (because we don't inform to avoid discarding ones!)
-            if oldest_unknown_idx is None and card_info['number'] == 1:
+            if oldest_unknown_idx is None and number == 1:
                 trailing_1_card = idx
             else:
                 trailing_1_card = None
 
-            play_possible = colour_maybe_playable or number_maybe_playable
+            play_possible = colour_may_play or number_may_play
+            # If all cards have info about, consider playing newest
             if idx == 4 and oldest_unknown_idx is None and play_possible:
-                maybe_hand.append(idx) # If all cards have info about, consider playing newest
+                maybe_hand.append(idx)
 
             if oldest_unknown_idx is not None \
-            and play_possible \
-            and card_info['colour'] not in told_to_hold \
-            and card_info['number'] not in told_to_hold:
+                    and play_possible \
+                    and colour not in told_to_hold \
+                    and number not in told_to_hold:
                 maybe_hand.append(idx)
 
         if len(sure_hand):
@@ -313,26 +319,33 @@ median: 21.0, mean: 20.0, stdev: 3.0
         if len(maybe_hand):
             return maybe_hand[-1]
 
-    def will_discard_idx(self, info_on_hand):
+    def will_discard_idx(self, hand_info):
         """returns hand index of card considered most discardable, never None"""
-        for idx, card_info in enumerate(info_on_hand):
+        for idx, card_info in enumerate(hand_info):
             if card_info and self.can_discard(card_info):
                 return idx
 
-        #todo - prioritise discard by card we have least "is-not" info about
-        for idx, card_info in enumerate(info_on_hand):
+        # todo - prioritise discard by card we have least "is-not" info about
+        for idx, card_info in enumerate(hand_info):
             if not card_info['colour'] and not card_info['number']:
                 return idx
 
-        return sorted(enumerate(info_on_hand), key=lambda c: c[1]['number'] if c[1]['number'] else -1)[-1][0] # if we have info on all, throw highest
+        # if we have info on all, throw highest
+        def fn_asc_number(c):
+            return c[1]['number'] if c[1]['number'] else -1
+        asc_cards     = sorted(enumerate(hand_info), key=fn_asc_number)
+        return asc_cards[-1][0]
 
     def could_play_idx(self, hand, playable_cards, not_number=-1):
-        sorted_set    = sorted(list(set(playable_cards).intersection(set(self.simplify_cards(hand)))))
-        next_can_play = sorted(sorted_set, key=lambda c: (c[1], -self.find_card_idx(hand, self.desimplify_card(c, hand))))
+        intersect_cards = set(playable_cards).intersection(set(self.simplify_cards(hand)))
+        sorted_cards    = sorted(list(intersect_cards))
+        desimp_cards    = [self.desimplify_card(card, hand) for card in sorted_cards]
+        next_can_play = sorted(desimp_cards, key=lambda c: (c[1], -self.find_card_idx(hand, c)))
         next_can_play = [c for c in next_can_play if c[1] != not_number]
         if next_can_play:
             card = self.desimplify_card(next_can_play[0], hand)
             return hand.index(card)
+
 
 class HanabiCheatBot(HanabiBotBase):
     """ looks at its own hand to make best move it can
@@ -373,20 +386,23 @@ median: 24.0, mean: 23.4, stdev: 1.8
 
     def get_move(self):
         hand = self.hanabi.current_hand()
-        playable_idxs = [i for i,c in enumerate(hand) if self.simplify_cards([c])[0] in self.playable_cards]
+        playable_idxs = [i for i, c in enumerate(hand)
+                         if self.simplify_cards([c])[0] in self.playable_cards]
         if len(playable_idxs):
             return self.format_move('play', playable_idxs[0])
 
-        junk_idxs = [i for i,c in enumerate(hand) if self.is_junk({'colour':c[0],'number':c[1]})]
+        junk_idxs = [i for i, c in enumerate(hand)
+                     if self.is_junk({'colour': c[0], 'number': c[1]})]
         if len(junk_idxs):
             return self.format_move('discard', junk_idxs[0])
 
-        discardable_idxs = [i for i,c in enumerate(hand) if self.can_discard({'colour':c[0],'number':c[1]})]
+        discardable_idxs = [i for i, c in enumerate(hand)
+                            if self.can_discard({'colour': c[0], 'number': c[1]})]
         if len(discardable_idxs):
             return self.format_move('discard', discardable_idxs[0])
 
         # if every card is required, discard highest
-        return self.format_move('discard', sorted(enumerate(hand), key=lambda c : -c[1][1])[0][0])
+        return self.format_move('discard', sorted(enumerate(hand), key=lambda c: -c[1][1])[0][0])
 
 
 class HanabiRandomBot():
@@ -423,11 +439,10 @@ class HanabiRandomBot():
 median: 1.0, mean: 1.2, stdev: 1.2
     """
     def get_move(self, hanabi):
-        moves = [a+b for a in 'pd' for b in 'abcde']
+        moves = [a + b for a in 'pd' for b in 'abcde']
         if hanabi.clocks:
             id     = hanabi.next_player_id()
-            moves += [str(id)+str(b) for b in range(1,6)]
-            moves += [str(id)+b[0] for b in hanabi.game_colours]
-            #todo - only select from currently possible info
+            moves += [str(id) + str(b) for b in range(1, 6)]
+            moves += [str(id) + b[0] for b in hanabi.game_colours]
+            # todo - only select from currently possible info
         return random.choice(moves)
-

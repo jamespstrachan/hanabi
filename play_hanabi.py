@@ -1,13 +1,18 @@
-import os, textwrap, sys, random, inspect
+import os
+import sys
+import textwrap
+import inspect
 from io import StringIO
 from sys import argv
 from time import sleep
 from statistics import mean, median, stdev
+
 from hanabi import HanabiGame, HanabiSession, HanabiGistServer, MockHanabiServer
 import hanabibot
 
+
 def main():
-    seed = argv[1] if len(argv)>1 else None
+    seed = argv[1] if len(argv) > 1 else None
     session, bot_class = None, None
 
     game_type = input("Play (l)ocal, (r)emote or (b)ot game? ") or 'b'
@@ -18,7 +23,7 @@ def main():
     elif game_type == 'b':
         reps        = int(input("how many reps? ") or 1)
         bot_names   = [c[0] for c in inspect.getmembers(hanabibot) if c[0][-3:] == "Bot"]
-        print("\n".join(["{} = {}".format(i,bc) for i,bc in enumerate(bot_names)]))
+        print("\n".join(["{} = {}".format(i, bc) for i, bc in enumerate(bot_names)]))
         bot_name    = bot_names[int(input("Which bot to use? ") or 0)]
         bot_class   = getattr(hanabibot, bot_name)
         num_players = int(input("How many instances of {} (2-5)? ".format(bot_name)) or 2)
@@ -31,50 +36,58 @@ def main():
     move_descriptions = game_loop(hanabi, session, bot_class)
     print_end_game(hanabi, move_descriptions)
 
+
 def bot_game(bot_class, num_players, seed, reps):
     scores = []
 
-    print("{} x {} playing, starting seed {} for {} reps".format(num_players, bot_class.__name__, seed, reps))
+    title = "{} x {} playing, starting seed {} for {} reps"\
+             .format(num_players, bot_class.__name__, seed, reps)
+    print(title)
     for i in range(reps):
-        sys.stdout = mystdout = StringIO()
-        hanabi = HanabiGame(num_players, seed)
-        while hanabi.is_game_over() == False:
+        sys.stdout = StringIO()
+        hanabi     = HanabiGame(num_players, seed)
+        while not hanabi.is_game_over():
             bot = bot_class(hanabi)
             play_move(hanabi, bot.get_move())
         scores.append((seed, hanabi.score(), hanabi.lives))
-        seed = hanabi.random_seed()
+        seed       = hanabi.random_seed()
         sys.stdout = sys.__stdout__
 
-    # os.system('clear') ## these two lines can be uncommented if the render block is moved into the above loop
-    # print("{} x {} playing, starting seed {} for {} reps".format(num_players, bot_class.__name__, seed, reps))
+    # these two lines can be uncommented if the render block is moved into the above loop
+    # os.system('clear')
+    # print(title)
     print(render_scores(scores))
     sleep(0.1)
     exit()
+
 
 def render_scores(scores):
     freq_score = []
     max_width  = 50
     op         = []
     for i in range(26):
-        freq_score.append(len([s for s in scores if s[1]==i]))
+        freq_score.append(len([s for s in scores if s[1] == i]))
     for i in range(26):
-        bar_width = max_width*freq_score[i]//max(freq_score)
-        examples  = [s[0] for s in scores if s[1]==i]
+        bar_width = max_width * freq_score[i] // max(freq_score)
+        examples  = [s[0] for s in scores if s[1] == i]
         example   = ("eg: {}".format(examples[0])) if examples else ''
-        bar_text  = '{: >3} {} {}'.format(freq_score[i] if freq_score[i] else '', "█"*bar_width, example)
+        freq      = freq_score[i] if freq_score[i] else ''
+        bar_text  = '{: >3} {} {}'.format(freq, "█" * bar_width, example)
         op.append("{: >2} : {}".format(i, bar_text))
     scores_list = [s[1] for s in scores]
-    op.append("{:.1%} of games ran out of lives".format(len([s for s in scores if s[2]<0])/len(scores)))
+    pc_died     = len([s for s in scores if s[2] < 0]) / len(scores)
+    op.append("{:.1%} of games ran out of lives".format(pc_died))
     if len(scores_list) > 1:
-        op.append("median: {}, mean: {:.1f}, stdev: {:.1f}".format(median(scores_list), \
-                                                                 mean(scores_list), \
-                                                                stdev(scores_list)))
+        op.append("median: {}, mean: {:.1f}, stdev: {:.1f}".format(median(scores_list),
+                                                                   mean(scores_list),
+                                                                   stdev(scores_list)))
     return "\n".join(op)
+
 
 def game_loop(hanabi, session, bot_class=None):
     move_descriptions = []
     moves             = []
-    while hanabi.is_game_over() == False:
+    while not hanabi.is_game_over():
         player_id = hanabi.current_player_id()
 
         if session and player_id != session.player_id:
@@ -85,9 +98,9 @@ def game_loop(hanabi, session, bot_class=None):
         else:
             if not session:
                 os.system('clear')
-                print(render_table(hanabi, move_descriptions[1-hanabi.num_players:]))
+                print(render_table(hanabi, move_descriptions[1 - hanabi.num_players:]))
                 if not bot_class:
-                    input("Player {} press enter".format(player_id+1))
+                    input("Player {} press enter".format(player_id + 1))
             print_player_view(hanabi, move_descriptions, player_id)
 
             if bot_class:
@@ -97,19 +110,22 @@ def game_loop(hanabi, session, bot_class=None):
                 move = get_local_move(hanabi, player_id)
 
         description = play_move(hanabi, move)
-        move_descriptions.append("Player {} {}".format(player_id+1, description))
+        move_descriptions.append("Player {} {}".format(player_id + 1, description))
 
         if session and player_id == session.player_id:
             print_player_view(hanabi, move_descriptions, player_id)
             session.submit_move(move)
     return move_descriptions
 
+
 def print_end_game(hanabi, move_descriptions):
     print_player_view(hanabi, move_descriptions, False)
     print(render_colour("white", " Game over, {} ".format(hanabi.end_message())))
     print()
-    print(textwrap.fill('Score of {} means "{}"'.format(hanabi.score(), hanabi.score_meaning()), 33))
+    meaning = 'Score of {} means "{}"'.format(hanabi.score(), hanabi.score_meaning())
+    print(textwrap.fill(meaning, 33))
     print()
+
 
 def get_local_move(hanabi, player_id):
     """ returns a move string eg '21' or 'dd' based on the current hanabi turn
@@ -122,38 +138,42 @@ def get_local_move(hanabi, player_id):
         if hanabi.num_players == 2:
             inform_string = ", (i)nform"
         else:
-            player_strings = ["Player ("+str(p+1)+")" for p in range(hanabi.num_players) \
+            player_strings = ["Player ({})".format(p + 1) for p in range(hanabi.num_players)
                                                           if p != player_id]
             inform_string = ", inform {}".format(', '.join(player_strings)) \
                             if hanabi.clocks > 0 else ""
         move_a = input("(p)lay, (d)iscard{}? ".format(inform_string))
 
-        move_b = 'x' # initialise to an invalid input
+        move_b = 'x'  # initialise to an invalid input
         if len(move_a) == 2:
             move_a, move_b = move_a
 
-        if move_a == 'i' and hanabi.num_players == 2: # make "i" move default to other player in 2 player game
-            move_a = str(2-player_id)
+        # make "i" move default to other player in 2 player game
+        if move_a == 'i' and hanabi.num_players == 2:
+            move_a = str(2 - player_id)
 
-        if move_a in ['p','d']:
+        if move_a in ['p', 'd']:
             while move_b not in "abcde":
                 move_b = input("which card to use, a-e? ")
 
         elif move_a.isdigit() \
-                and int(move_a) in range(1, hanabi.num_players+1) \
-                and int(move_a) != player_id+1 \
+                and int(move_a) in range(1, hanabi.num_players + 1) \
+                and int(move_a) != player_id + 1 \
                 and hanabi.clocks > 0:
             hand_id        = int(move_a) - 1
             numbers        = [str(x) for x in hanabi.possible_info(hand_id, type='number')]
             colours        = hanabi.possible_info(hand_id, type='colour')
             decorated_cols = ['({}){}'.format(c[0], c[1:]) for c in colours]
             while move_b not in numbers + [x[0] for x in colours]:
-                move_b = input("inform of {}, {}? ".format(', '.join(map(str, numbers)), ', '.join(sorted(decorated_cols))))
+                possible_numbers = ', '.join(map(str, numbers))
+                possible_colours = ', '.join(sorted(decorated_cols))
+                move_b = input("inform of {}, {}? ".format(possible_numbers, possible_colours))
         else:
             input_error = 'invalid option "{}", choose from:'.format(move_a)
             continue
         break
-    return move_a+move_b
+    return move_a + move_b
+
 
 def play_move(hanabi, move):
     """ Applies supplied move to the supplied hanabi game, returning a descriptive string
@@ -166,7 +186,8 @@ def play_move(hanabi, move):
         hanabi.inform(hand_id, info)
         example_card = ("grey", info) if info.isdigit() \
                        else (info, " ")
-        action_description = "told Player {} about {}s".format(hand_id+1, render_cards([example_card]))
+        rendered_card = render_cards([example_card])
+        action_description = "told Player {} about {}s".format(hand_id + 1, rendered_card)
     else:
         hand_index = "abcde".find(move[1])
         if move[0] == 'p':
@@ -177,6 +198,7 @@ def play_move(hanabi, move):
             action_description = "discarded"
         action_description += " card: {}".format(render_cards([hanabi.last_card]))
     return action_description
+
 
 def start_remote_game(seed, server_class):
     """ Prompts player to create or join a remote game, returns a session object for it
@@ -191,7 +213,10 @@ def start_remote_game(seed, server_class):
 
     game_list = session.request_game_list(new=True)
     print("Choose game to join:")
-    print('\n'.join(" - ({}) join {}".format(i, f) for i,f in enumerate(game_list)) or "\n( no current games exist )\n")
+    for i, f in enumerate(game_list):
+        print(" - ({}) join {}".format(i, f))
+    else:
+        print("\n( no current games exist )\n")
     chosen_game = input(" - (n) create new game? ")
 
     if chosen_game == 'n':
@@ -205,34 +230,39 @@ def start_remote_game(seed, server_class):
 
     return session
 
+
 def check_credentials():
     """ Loads credentials if present or requests from user
     """
     dir_path = os.path.dirname(os.path.abspath(__file__))
     file_path = "credentials.py"
     full_path = dir_path + os.path.sep + file_path
-    if os.path.isfile(full_path) == False:
+    if not os.path.isfile(full_path):
         print("Setup required, no credentials found")
-        token   = input("  server token : ")
-        tag     = input("    server tag : ")
-        fh = open(full_path, "w")
+        token = input("  server token : ")
+        tag   = input("    server tag : ")
+        fh    = open(full_path, "w")
         lines = [
             "# application credentials",
             "token = '{}'".format(token),
             "tag = '{}'".format(tag),
             "",
-            ]
+        ]
         fh.write("\n".join(lines))
         fh.close()
         print("Setup complete\n")
 
+
 def print_player_view(hanabi, move_descriptions, player_id):
     os.system('clear')
-    print(render_table(hanabi, move_descriptions[1-hanabi.num_players:])+"\n")
-    print("\n".join(render_hand(hanabi, i, False if player_id is False else i==player_id) for i in range(hanabi.num_players)))
+    print(render_table(hanabi, move_descriptions[1 - hanabi.num_players:]) + "\n")
+    for i in range(hanabi.num_players):
+        print(render_hand(hanabi, i, False if player_id is False else i == player_id))
 
-def render_cards(list, width = 3):
-    return ''.join(render_colour(l[0], "{: ^{width}}".format(str(l[1]), width=str(width))) for l in list)
+
+def render_cards(list, width=3):
+    return ''.join(render_colour(l[0], "{: ^{width}}".format(l[1], width=width)) for l in list)
+
 
 def render_colour(colour, string):
     op_colours = {
@@ -246,41 +276,49 @@ def render_colour(colour, string):
     }
     return "{}{}{}".format(op_colours[colour], str(string), op_colours['end'])
 
-def render_table(hanabi, move_descriptions = []):
+
+def render_table(hanabi, move_descriptions=[]):
     op = move_descriptions if len(move_descriptions) else ['']
     op += ["{:=>32}=".format(hanabi.seed)]
-    op += ["clocks:{}, lives:{} ".format(hanabi.clocks, hanabi.lives) + render_cards([pile[-1] for pile in hanabi.table])]
-    op += ["turns:{: >2}, deck:{: >2}      score: {: >2}".format(hanabi.turn, len(hanabi.deck), hanabi.score())]
-    if len(hanabi.discard_pile):
-        op += ["discard pile : "[len(hanabi.discard_pile)-33:] + render_cards(hanabi.discard_pile, width=1)]
+    piles = render_cards([pile[-1] for pile in hanabi.table])
+    op += ["clocks:{}, lives:{} {}".format(hanabi.clocks, hanabi.lives, piles)]
+    op += ["turns:{: >2}, deck:{: >2}      score: {: >2}"
+           .format(hanabi.turn, len(hanabi.deck), hanabi.score())]
+    pile = hanabi.discard_pile
+    if len(pile):
+        op += ["discard pile : "[len(pile) - 33:] + render_cards(pile, width=1)]
     op += ["{:=>33}".format('')]
     return "\n".join(op)
 
-def render_hand(hanabi, player_id, is_current_player = False):
+
+def render_hand(hanabi, player_id, is_current_player=False):
     player_name = "your hand" if is_current_player \
-                  else "player {}'s hand".format(1+player_id)
+                  else "player {}'s hand".format(1 + player_id)
     top_line    = render_cards([("grey", x) for x in "abcde"]) if is_current_player \
                   else render_cards(hanabi.hands[player_id])
     return "{: >15} : {}".format(player_name, top_line) + \
-           "\n"+ render_info(hanabi, player_id) +"\n"
+           "\n" + render_info(hanabi, player_id) + "\n"
+
 
 def render_info(hanabi, id):
     not_colour_row, not_number_row = '', ''
     for card in hanabi.hands[id]:
         info = hanabi.info[id][card]
         if card in hanabi.info[id]:
-            not_colour_row += ''.join(render_cards([(x,' ')],width=1) for x in sorted(info['not_colour']))
-            not_colour_row += (3-len(info['not_colour'])) * " "
+            nc_info         = sorted(info['not_colour'])
+            not_colour_row += ''.join(render_cards([(x, ' ')], width=1) for x in nc_info)
+            not_colour_row += (3 - len(info['not_colour'])) * " "
             not_number_row += "{:<3}".format(''.join(str(x) for x in sorted(info['not_number'])))
 
     obscured_hand = []
     for card in hanabi.hands[id]:
         card_info = hanabi.info[id][card]
-        obscured_hand.append((card_info['colour'] if card_info['colour'] else 'end', \
+        obscured_hand.append((card_info['colour'] if card_info['colour'] else 'end',
                               card_info['number'] if card_info['number'] else ' '))
     return "     we know is : {}".format(render_cards(obscured_hand)) + \
-         "\n     not colour : {}".format(not_colour_row) + \
-         "\n     not number : {}".format(not_number_row)
+        "\n     not colour : {}".format(not_colour_row) + \
+        "\n     not number : {}".format(not_number_row)
+
 
 if __name__ == "__main__":
     main()

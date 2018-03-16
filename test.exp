@@ -145,7 +145,7 @@ expect -exact "how many reps? "
 send -- "10\r"
 expect -exact "Which bot to use? "
 send -- "0\r"
-expect -exact "How many instances of HanabiBot (2-5)? "
+expect -exact "How many instances of HanabiBasicBot (2-5)? "
 send -- "2\r"
 expect eof
 
