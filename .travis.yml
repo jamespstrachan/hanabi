@@ -1,5 +1,10 @@
 language: python
 python:
   - "3.4"
+before_install:
+  - sudo apt-get -qq update
+  - sudo apt-get install -y expect
 script:
-  - python test_hanabi.py
+  - python -m unittest discover
+  - flake8 --max-line-length=100 --ignore E221,E127,E241
+  - expect test.exp
