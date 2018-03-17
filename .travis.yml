@@ -5,6 +5,9 @@ before_install:
   - sudo apt-get -qq update
   - sudo apt-get install -y expect
 script:
+  - mv credentials.EXAMPLE.py credentials.py
+  - sed -ri "s/YOUR_TOKEN_HERE/$HANABI_SERVER_TOKEN/" credentials.py
+  - sed -ri "s/YOUR_TAG_HERE/$HANABI_SERVER_TAG/" credentials.py
   - python -m unittest discover
   - flake8 --max-line-length=100 --ignore E221,E127,E241
   - expect test.exp
