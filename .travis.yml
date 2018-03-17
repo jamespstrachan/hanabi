@@ -12,4 +12,4 @@ script:
   - flake8 --max-line-length=100 --ignore E221,E127,E241
   - expect test.exp
 after_success:
-  - curl -H "Content-Type: application/json" --data '{"build": true}' -X POST "https://registry.hub.docker.com/u/jamespstrachan/hanabi/trigger/$DOCKER_BUILD_TOKEN/"
+  - "curl -H \"Content-Type: application/json\" --data '{\"build\": true}' -X POST \"https://registry.hub.docker.com/u/jamespstrachan/hanabi/trigger/$DOCKER_BUILD_TOKEN/\""
