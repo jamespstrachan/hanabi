@@ -4,6 +4,7 @@ import string
 import json
 import datetime
 from time import sleep
+from collections import OrderedDict
 
 import requests
 
@@ -170,13 +171,14 @@ class HanabiSession():
         self.hanabi     = hanabi
         self.player_id  = 0
         game_content = {
+            "date":        datetime.datetime.now().strftime('%c'),
             "seed":        hanabi.seed,
             "num_players": hanabi.num_players,
             "players":     [creator_name],
             "moves":       []
         }
-        date            = datetime.datetime.now().strftime('%c')
-        self.game_title = "game by {} on {}".format(creator_name, date)
+        date            = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        self.game_title = "{} - game by {}".format(date, creator_name)
         self.server.request_game(self.game_title, game_content, create=True)
 
     def join_game(self, game_title, player_name):
@@ -236,7 +238,7 @@ class HanabiSession():
 class HanabiGistServer():
     """Wraps a Github gist to make it into a game server"""
     before_poll_delay = 10
-    newgame_prefix = "New "
+    newgame_prefix = "!New "
 
     def __init__(self, url, credentials, is_test=False):
         assert not is_test, \
@@ -267,12 +269,17 @@ class HanabiGistServer():
             elif len(updated_content['players']) == updated_content['num_players']:
                 new_filename = game_title  # update filename if all players have joined
 
+            sort_order      = ["date", "seed", "num_players", "players", "moves"]
+            ordered_content = \
+                OrderedDict(sorted(
+                    updated_content.items(),
+                    key=lambda i: sort_order.index(i[0])
+                ))
             payload = {
                 "files": {
                     filename: {
                         "filename": new_filename if new_filename else filename,
-                        # todo sort order, see https://tinyurl.com/y89l6t77
-                        "content": json.dumps(updated_content, indent=4),
+                        "content": json.dumps(ordered_content, indent=4),
                     }
                 }
             }

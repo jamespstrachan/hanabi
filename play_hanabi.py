@@ -215,7 +215,7 @@ def start_remote_game(seed, server_class):
     print("Choose game to join:")
     for i, f in enumerate(game_list):
         print(" - ({}) join {}".format(i, f))
-    else:
+    if not game_list:
         print("\n( no current games exist )\n")
     chosen_game = input(" - (n) create new game? ")
 
