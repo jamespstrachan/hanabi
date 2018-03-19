@@ -56,7 +56,6 @@ class HanabiGame():
             return "you used all the cards"
         if self.score() == 25:
             return "you completed the game"
-        return None
 
     def score(self):
         return sum(pile[-1][1] for pile in self.table)
