@@ -237,10 +237,54 @@ class HanabiSession():
             sleep(3 * turns_to_wait)
 
 
-class HanabiGistServer():
-    """Wraps a Github gist to make it into a game server"""
-    before_poll_delay = 10
+class HanabiServerBase():
+    """ shared functionality for hanabi game servers
+    """
     newgame_prefix = "!New "
+
+    def filter_game_list(self, filename_list, new=False):
+        game_titles = []
+        for game_title in filename_list:
+            if game_title.find(self.newgame_prefix) == 0:
+                if new:
+                    game_titles.append(game_title[len(self.newgame_prefix):])
+            elif not new:
+                    game_titles.append(game_title)
+        return game_titles
+
+    # todo - remove this method entirely, make session call start_, join_, update_ methods direct
+    def request_game(self, game_title, updated_content=None, create=False, join=False):
+        prefix = self.newgame_prefix if join else ''
+        if not updated_content:
+            return self.get_game_state(prefix + game_title)
+        elif create:
+            self.start_new_game(self.newgame_prefix + game_title, updated_content)
+        else:
+            players_full = len(updated_content['players']) == updated_content['num_players']
+            self.update_game(prefix + game_title, updated_content,
+                             new_filename=game_title if players_full else None)
+
+    def format_game_json(self, game_json):
+        sort_order = ["date", "seed", "num_players", "players", "moves"]
+        return OrderedDict(sorted(
+            game_json.items(),
+            key=lambda i: sort_order.index(i[0])
+        ))
+
+    def condense_moves_json(self, file_content):
+        # todo - change replace() for another re to condense any spaces and \n to ", "
+        return re.sub(
+            r'"moves".*?\]',
+            lambda s: s.group(0).replace(",\n        ", ", "),
+            json.dumps(file_content, indent=4),
+            flags=re.S
+        )
+
+
+class HanabiGistServer(HanabiServerBase):
+    """ Wraps a Github gist to make it into a game server
+    """
+    before_poll_delay = 10
 
     def __init__(self, url, credentials, is_test=False):
         assert not is_test, \
@@ -250,64 +294,37 @@ class HanabiGistServer():
         self.headers     = {"Authorization": "token {}".format(credentials.token)}
 
     def request_game_list(self, new=False):
-        all_filenames = dict.keys(requests.get(self.url, headers=self.headers).json()['files'])
-        filenames = []
-        for filename in all_filenames:
-            if filename.find(self.newgame_prefix) == 0:
-                if new:
-                    filenames.append(filename[len(self.newgame_prefix):])
-            elif not new:
-                    filenames.append(filename)
-        return filenames
+        gist_dict = requests.get(self.url, headers=self.headers).json()
+        filenames = gist_dict['files'].keys()
+        return self.filter_game_list(filenames, new)
 
-    def request_game(self, game_title, updated_content=None, create=False, join=False):
-        payload = None
-        filename = (self.newgame_prefix if join else '') + game_title
+    def get_game_state(self, gist_filename):
+        response = requests.request("GET", self.url, headers=self.headers)
+        return json.loads(response.json()['files'][gist_filename]['content'])
 
-        if updated_content:
-            new_filename = None
-            if create:
-                filename = self.newgame_prefix + game_title
-            elif len(updated_content['players']) == updated_content['num_players']:
-                new_filename = game_title  # update filename if all players have joined
+    def start_new_game(self, gist_filename, game_content):
+        self.update_game(gist_filename, game_content, verb="POST")
 
-            sort_order      = ["date", "seed", "num_players", "players", "moves"]
-            ordered_content = \
-                OrderedDict(sorted(
-                    updated_content.items(),
-                    key=lambda i: sort_order.index(i[0])
-                ))
-            # format moves array so it's not one move per line
-            file_content = re.sub(
-                r'"moves".*?\]',
-                lambda s: s.group(0).replace(",\n        ", ", "),
-                json.dumps(ordered_content, indent=4),
-                flags=re.S
-            )
-
-            payload = {
-                "files": {
-                    filename: {
-                        "filename": new_filename if new_filename else filename,
-                        "content": file_content,
-                    }
+    def update_game(self, gist_filename, game_content, new_filename=None, verb="PATCH"):
+        ordered_content = self.format_game_json(game_content)
+        payload = {
+            "files": {
+                gist_filename: {
+                    "filename": new_filename if new_filename else gist_filename,
+                    "content":  self.condense_moves_json(ordered_content),
                 }
             }
-
-        verb     = "POST" if create else ("PATCH" if updated_content else "GET")
+        }
         response = requests.request(verb, self.url, headers=self.headers, json=payload)
         if response.status_code != 200:
             print(json.dumps(response.json(), indent=4))
             exit()
 
-        if verb == "GET":
-            return json.loads(response.json()['files'][filename]['content'])
 
-
-class HanabiLocalFileServer():
-    """Wraps a local file to make it into a game server"""
+class HanabiLocalFileServer(HanabiServerBase):
+    """ Wraps a local file to make it into a game server
+    """
     before_poll_delay = 0.5
-    newgame_prefix    = "!New "
     filename          = "gamefiles.json"
 
     def __init__(self, *args, **kwargs):
@@ -320,57 +337,32 @@ class HanabiLocalFileServer():
             fh.close()
         with open(self.filename, encoding='utf-8') as file_handle:
             file_json = json.load(file_handle)
-            game_titles = []
-            for game_title in file_json:
-                if game_title.find(self.newgame_prefix) == 0:
-                    if new:
-                        game_titles.append(game_title[len(self.newgame_prefix):])
-                elif not new:
-                        game_titles.append(game_title)
-            return game_titles
+            return self.filter_game_list(file_json.keys(), new)
 
-    def request_game(self, game_title, updated_content=None, create=False, join=False):
-        filename = (self.newgame_prefix if join else '') + game_title
-        with open(self.filename, 'r+', encoding='utf-8') as file_handle:
+    def get_game_state(self, gist_filename):
+        with open(self.filename, 'r') as file_handle:
+            file_json = json.load(file_handle)
+            return file_json[gist_filename]
+
+    def start_new_game(self, gist_filename, game_content):
+        self.update_game(gist_filename, game_content)
+
+    def update_game(self, gist_filename, game_content, new_filename=None):
+        with open(self.filename, 'r+') as file_handle:
             file_json = json.load(file_handle)
 
-            if updated_content:
-                new_filename = None
-                if create:
-                    filename = self.newgame_prefix + game_title
-                elif len(updated_content['players']) == updated_content['num_players']:
-                    new_filename = game_title  # update filename if all players have joined
+            ordered_content = self.format_game_json(game_content)
+            if new_filename:
+                del file_json[gist_filename]
+                gist_filename = new_filename
 
-                sort_order      = ["date", "seed", "num_players", "players", "moves"]
-                ordered_content = \
-                    OrderedDict(sorted(
-                        updated_content.items(),
-                        key=lambda i: sort_order.index(i[0])
-                    ))
-
-                if new_filename:
-                    del file_json[filename]
-                    file_json[new_filename] = ordered_content
-                else:
-                    file_json[filename] = ordered_content
-                file_handle.seek(0)
-                file_handle.truncate(0)
-
-                # format moves array so it's not one move per line
-                file_content = re.sub(
-                    r'"moves".*?\]',
-                    lambda s: s.group(0).replace(",\n            ", ", "),
-                    json.dumps(file_json, indent=4),
-                    flags=re.S
-                )
-
-                file_handle.write(file_content)
-                return updated_content
-
-            return file_json[filename]
+            file_json[gist_filename] = ordered_content
+            file_handle.seek(0)
+            file_handle.truncate(0)
+            file_handle.write(self.condense_moves_json(file_json))
 
 
-class MockHanabiServer():
+class MockHanabiServer(HanabiServerBase):
     """Pretends to be to a game server, lets player set up or join a game
        and always, always discards the fourth card in any hand
     """
