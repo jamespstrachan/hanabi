@@ -7,7 +7,8 @@ from sys import argv
 from time import sleep
 from statistics import mean, median, stdev
 
-from hanabi import HanabiGame, HanabiSession, HanabiGistServer, MockHanabiServer
+from hanabi import HanabiGame, HanabiSession, HanabiGistServer, \
+    HanabiLocalFileServer, MockHanabiServer
 import hanabibot
 
 
@@ -17,7 +18,10 @@ def main():
 
     game_type = input("Play (l)ocal, (r)emote or (b)ot game? ") or 'b'
     if game_type and game_type[0] == 'r':
-        server_class = MockHanabiServer if game_type == 'rt' else HanabiGistServer
+        server_class = \
+            MockHanabiServer if game_type == 'rt' \
+            else HanabiLocalFileServer if game_type == 'rl' \
+            else HanabiGistServer
         session      = start_remote_game(seed, server_class)
         hanabi       = session.hanabi
     elif game_type == 'b':

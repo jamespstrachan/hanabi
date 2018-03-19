@@ -1,8 +1,10 @@
 """Hanabi module providing a HanabiGame class along with a HanabiServer class for remote games"""
+import os
 import random
 import string
 import json
 import datetime
+import re
 from time import sleep
 from collections import OrderedDict
 
@@ -275,11 +277,19 @@ class HanabiGistServer():
                     updated_content.items(),
                     key=lambda i: sort_order.index(i[0])
                 ))
+            # format moves array so it's not one move per line
+            file_content = re.sub(
+                r'"moves".*?\]',
+                lambda s: s.group(0).replace(",\n        ", ", "),
+                json.dumps(ordered_content, indent=4),
+                flags=re.S
+            )
+
             payload = {
                 "files": {
                     filename: {
                         "filename": new_filename if new_filename else filename,
-                        "content": json.dumps(ordered_content, indent=4),
+                        "content": file_content,
                     }
                 }
             }
@@ -292,6 +302,72 @@ class HanabiGistServer():
 
         if verb == "GET":
             return json.loads(response.json()['files'][filename]['content'])
+
+
+class HanabiLocalFileServer():
+    """Wraps a local file to make it into a game server"""
+    before_poll_delay = 0.5
+    newgame_prefix    = "!New "
+    filename          = "gamefiles.json"
+
+    def __init__(self, *args, **kwargs):
+        pass
+
+    def request_game_list(self, new=False):
+        if not os.path.exists(self.filename):
+            fh = open(self.filename, 'w')
+            fh.write("{}")
+            fh.close()
+        with open(self.filename, encoding='utf-8') as file_handle:
+            file_json = json.load(file_handle)
+            game_titles = []
+            for game_title in file_json:
+                if game_title.find(self.newgame_prefix) == 0:
+                    if new:
+                        game_titles.append(game_title[len(self.newgame_prefix):])
+                elif not new:
+                        game_titles.append(game_title)
+            return game_titles
+
+    def request_game(self, game_title, updated_content=None, create=False, join=False):
+        filename = (self.newgame_prefix if join else '') + game_title
+        with open(self.filename, 'r+', encoding='utf-8') as file_handle:
+            file_json = json.load(file_handle)
+
+            if updated_content:
+                new_filename = None
+                if create:
+                    filename = self.newgame_prefix + game_title
+                elif len(updated_content['players']) == updated_content['num_players']:
+                    new_filename = game_title  # update filename if all players have joined
+
+                sort_order      = ["date", "seed", "num_players", "players", "moves"]
+                ordered_content = \
+                    OrderedDict(sorted(
+                        updated_content.items(),
+                        key=lambda i: sort_order.index(i[0])
+                    ))
+
+                if new_filename:
+                    del file_json[filename]
+                    file_json[new_filename] = ordered_content
+                else:
+                    file_json[filename] = ordered_content
+                file_handle.seek(0)
+                file_handle.truncate(0)
+
+                # format moves array so it's not one move per line
+                file_content = re.sub(
+                    r'"moves".*?\]',
+                    lambda s: s.group(0).replace(",\n            ", ", "),
+                    json.dumps(file_json, indent=4),
+                    flags=re.S
+                )
+
+                file_handle.write(file_content)
+                return updated_content
+
+            return file_json[filename]
 
 
 class MockHanabiServer():
