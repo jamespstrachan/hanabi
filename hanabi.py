@@ -283,10 +283,9 @@ class HanabiServerBase():
         ))
 
     def condense_moves_json(self, file_content):
-        # todo - change replace() for another re to condense any spaces and \n to ", "
         return re.sub(
             r'"moves".*?\]',
-            lambda s: s.group(0).replace(",\n        ", ", "),
+            lambda s: re.sub(r',\n +', ', ', s.group(0)),
             json.dumps(file_content, indent=4),
             flags=re.S
         )
