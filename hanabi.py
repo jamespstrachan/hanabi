@@ -180,17 +180,13 @@ class HanabiSession():
         }
         date            = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
         self.game_title = "{} - game by {}".format(date, creator_name)
-        self.server.request_game(self.game_title, game_content, create=True)
+        self.server.start_new_game(self.game_title, game_content)
 
     def join_game(self, game_title, player_name):
+        game_content    = self.server.join_game(game_title, player_name)
         self.game_title = game_title
-        game_content    = self.server.request_game(self.game_title, join=True)
-        self.player_id  = len(game_content['players'])
-        game_content['players'].append(player_name)
-
-        self.server.request_game(self.game_title, game_content, join=True)
-
-        self.hanabi = HanabiGame(game_content['num_players'], game_content['seed'])
+        self.player_id  = len(game_content['players']) - 1
+        self.hanabi     = HanabiGame(game_content['num_players'], game_content['seed'])
 
     def await_players(self):
         print("waiting for players", end='', flush=True)
@@ -201,7 +197,7 @@ class HanabiSession():
             count_checks += 1
             print(".", end='', flush=True)
             if self.game_title in self.request_game_list():
-                game_content = self.server.request_game(self.game_title)
+                game_content = self.server.get_game_content(self.game_title)
                 if len(game_content['players']) == self.hanabi.num_players:
                     return
             if count_checks % 20 == 19:
@@ -211,9 +207,7 @@ class HanabiSession():
 
     def submit_move(self, move):
         print("updating game server...", end='', flush=True)
-        game_content = self.server.request_game(self.game_title)
-        game_content['moves'].append(move)
-        self.server.request_game(self.game_title, game_content)
+        self.server.submit_move(self.game_title, move)
         print("updated")
 
     def await_move(self):
@@ -223,7 +217,7 @@ class HanabiSession():
         while True:
             count_checks += 1
             print(".", end='', flush=True)
-            game_content = self.server.request_game(self.game_title)
+            game_content = self.server.get_game_content(self.game_title)
             if len(game_content['moves']) > self.hanabi.turn:
                 moves = game_content['moves'][self.hanabi.turn:]
                 print(" found new moves {}".format(moves))
@@ -251,17 +245,23 @@ class HanabiServerBase():
                     game_titles.append(game_title)
         return game_titles
 
-    # todo - remove this method entirely, make session call start_, join_, update_ methods direct
-    def request_game(self, game_title, updated_content=None, create=False, join=False):
-        prefix = self.newgame_prefix if join else ''
-        if not updated_content:
-            return self.get_game_state(prefix + game_title)
-        elif create:
-            self.start_new_game(self.newgame_prefix + game_title, updated_content)
-        else:
-            players_full = len(updated_content['players']) == updated_content['num_players']
-            self.update_game(prefix + game_title, updated_content,
-                             new_filename=game_title if players_full else None)
+    def start_new_game(self, game_title, game_content):
+        self.update_game(self.newgame_prefix + game_title, game_content)
+
+    def join_game(self, game_title, player_name):
+        newgame_title = self.newgame_prefix + game_title
+        game_content  = self.get_game_content(newgame_title)
+        game_content['players'].append(player_name)
+
+        players_full = len(game_content['players']) == game_content['num_players']
+        new_filename = game_title if players_full else None
+        self.update_game(newgame_title, game_content, new_filename=new_filename)
+        return game_content
+
+    def submit_move(self, game_title, move):
+        game_content = self.get_game_content(game_title)
+        game_content['moves'].append(move)
+        self.update_game(game_title, game_content)
 
     def format_game_json(self, game_json):
         sort_order = ["date", "seed", "num_players", "players", "moves"]
@@ -297,12 +297,9 @@ class HanabiGistServer(HanabiServerBase):
         filenames = gist_dict['files'].keys()
         return self.filter_game_list(filenames, new)
 
-    def get_game_state(self, gist_filename):
+    def get_game_content(self, gist_filename):
         response = requests.request("GET", self.url, headers=self.headers)
         return json.loads(response.json()['files'][gist_filename]['content'])
-
-    def start_new_game(self, gist_filename, game_content):
-        self.update_game(gist_filename, game_content, verb="POST")
 
     def update_game(self, gist_filename, game_content, new_filename=None, verb="PATCH"):
         ordered_content = self.format_game_json(game_content)
@@ -338,13 +335,10 @@ class HanabiLocalFileServer(HanabiServerBase):
             file_json = json.load(file_handle)
             return self.filter_game_list(file_json.keys(), new)
 
-    def get_game_state(self, gist_filename):
+    def get_game_content(self, gist_filename):
         with open(self.filename, 'r') as file_handle:
             file_json = json.load(file_handle)
             return file_json[gist_filename]
-
-    def start_new_game(self, gist_filename, game_content):
-        self.update_game(gist_filename, game_content)
 
     def update_game(self, gist_filename, game_content, new_filename=None):
         with open(self.filename, 'r+') as file_handle:
@@ -368,41 +362,52 @@ class MockHanabiServer(HanabiServerBase):
     before_poll_delay = 0
     seed  = "iFduD"
     games = {
-        'Test game for two players': {
+        '!New Test game for two players': {
             "seed":        seed,
             "num_players": 2,
             "players":     ["Silly Bot"],
-            "moves":       []
+            "moves":       ["dd"]
         },
-        'Test game for three players': {
+        '!New Test game for three players': {
             "seed":        seed,
             "num_players": 3,
             "players":     ["Silly Bot", "Dumb Bot"],
-            "moves":       []
+            "moves":       ["dd", "dd"]
         },
     }
 
     def __init__(self, url, credentials, is_test=False):
-        # Don't add fake delay if being tested by script
         self.is_test = is_test
+        self.adding_bots = False
+
+    def start_new_game(self, game_title, game_content):
+        super().start_new_game(game_title, game_content)
+        self.adding_bots = True
+        for i in range(game_content['num_players'] - 1):
+            super().join_game(game_title, 'Bot {}'.format(str(i + 1)))
+
+    # todo - consider join_game() here which populates right number
+    #        of bot first moves so "moves" array in above fixtures
+    #        can be initialised to [] like a normal game
 
     def request_game_list(self, new=False):
-        return sorted(list(self.games), reverse=True)
+        game_names = self.filter_game_list(list(self.games.keys()), new)
+        return sorted(game_names, reverse=True)
 
-    def request_game(self, game_title, updated_content=None, create=False, join=False):
-        if create:
-            game      = updated_content
-            bot_names = ['Bot {}'.format(str(i + 1)) for i in range(game['num_players'] - 1)]
-            game['players'].extend(bot_names)
-            self.games[game_title] = game
-        else:
-            game = self.games[game_title]
-            if updated_content:
-                fake_moves = ['da', 'db', 'dc', 'dd', 'de'][0:game['num_players'] - 1]
-                updated_content['moves'].extend(fake_moves)
-                game = updated_content
+    def get_game_content(self, game_title):
+        return self.games[game_title]
+
+    def submit_move(self, game_title, move):
+        super().submit_move(game_title, move)
+        for i in range(self.games[game_title]['num_players'] - 1):
+            super().submit_move(game_title, "dd")
+
+    def update_game(self, game_title, game_content, new_filename=None):
+        if new_filename:
+            del self.games[game_title]
+            game_title = new_filename
+        self.games[game_title] = game_content
         self.sleep(1)
-        return game
 
     def sleep(self, seconds):
         if not self.is_test:
