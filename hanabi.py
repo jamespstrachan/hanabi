@@ -188,6 +188,18 @@ class HanabiSession():
         self.player_id  = len(game_content['players']) - 1
         self.hanabi     = HanabiGame(game_content['num_players'], game_content['seed'])
 
+    def list_players(self, game_title):
+        return self.server.get_game_content(game_title)['players']
+
+    def rejoin_game(self, game_title, player_id):
+        self.game_title = game_title
+        self.player_id  = player_id
+        game_content    = self.server.get_game_content(game_title)
+        self.hanabi     = HanabiGame(game_content['num_players'], game_content['seed'])
+
+    def list_moves(self):
+        return self.server.get_game_content(self.game_title)['moves']
+
     def await_players(self):
         print("waiting for players", end='', flush=True)
         if self.player_id < self.hanabi.num_players - 1:  # if we're not the final joiner
@@ -373,6 +385,12 @@ class MockHanabiServer(HanabiServerBase):
             "num_players": 3,
             "players":     ["Silly Bot", "Dumb Bot"],
             "moves":       ["dd", "dd"]
+        },
+        'Partially played game for three players': {
+            "seed":        seed,
+            "num_players": 3,
+            "players":     ["Athos", "Porthos", "Aramis"],
+            "moves":       ["dd", "dd", "dd", "dd"]
         },
     }
 

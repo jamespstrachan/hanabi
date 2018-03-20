@@ -19,10 +19,11 @@ def main():
     game_type = input("Play (l)ocal, (r)emote or (b)ot game? ") or 'b'
     if game_type and game_type[0] == 'r':
         server_class = \
-            MockHanabiServer if game_type == 'rt' \
-            else HanabiLocalFileServer if game_type == 'rl' \
+            MockHanabiServer if game_type[0:2] == 'rt' \
+            else HanabiLocalFileServer if game_type[0:2] == 'rl' \
             else HanabiGistServer
-        session      = start_remote_game(seed, server_class)
+        is_rejoin    = game_type[-2:] == 'rj'
+        session      = start_remote_game(seed, server_class, is_rejoin=is_rejoin)
         hanabi       = session.hanabi
     elif game_type == 'b':
         reps        = int(input("how many reps? ") or 1)
@@ -204,8 +205,8 @@ def play_move(hanabi, move):
     return action_description
 
 
-def start_remote_game(seed, server_class):
-    """ Prompts player to create or join a remote game, returns a session object for it
+def start_remote_game(seed, server_class, is_rejoin=False):
+    """ Prompts player to create or join or re-join a remote game, returns a session object for it
     """
     player_name = input("What's your name? ")
 
@@ -215,7 +216,7 @@ def start_remote_game(seed, server_class):
     server = server_class('https://api.github.com/gists', credentials, is_test="--auto" in argv)
     session = HanabiSession(server)
 
-    game_list = session.request_game_list(new=True)
+    game_list = session.request_game_list(new=not is_rejoin)
     print("Choose game to join:")
     for i, f in enumerate(game_list):
         print(" - ({}) join {}".format(i, f))
@@ -228,6 +229,16 @@ def start_remote_game(seed, server_class):
         hanabi      = HanabiGame(int(num_players), seed)
         session.new_game(hanabi, player_name)
         session.await_players()
+    elif is_rejoin:
+        game_title = game_list[int(chosen_game)]
+        print("Loading players in {}...".format(game_title))
+        for i, f in enumerate(session.list_players(game_title)):
+            print(" - ({}) {}".format(i, f))
+        player_id = int(input("which player to join as? "))
+        session.rejoin_game(game_title, player_id)
+        print("Loading moves...")
+        for move in session.list_moves():
+            play_move(session.hanabi, move)
     else:
         session.join_game(game_list[int(chosen_game)], player_name)
         session.await_players()
