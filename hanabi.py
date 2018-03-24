@@ -56,6 +56,7 @@ class HanabiGame():
             return "you used all the cards"
         if self.score() == 25:
             return "you completed the game"
+        # todo - game is over if all playable cards are in the discard pile
 
     def score(self):
         return sum(pile[-1][1] for pile in self.table)
@@ -221,6 +222,7 @@ class HanabiSession():
         print("updating game server...", end='', flush=True)
         self.server.submit_move(self.game_title, move)
         print("updated")
+        # todo - check for gameover state and save results to server
 
     def await_move(self):
         print("waiting for move", end='', flush=True)

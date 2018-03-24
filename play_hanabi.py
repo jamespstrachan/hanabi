@@ -281,15 +281,28 @@ def render_cards(list, width=3):
 
 def render_colour(colour, string):
     op_colours = {
-        "red":    '\033[41m',
-        "yellow": '\033[43m',
-        "green":  '\033[42m',
-        "blue":   '\033[46m',
-        "white":  '\033[7m',
+        # "red":    '\033[41m',  # white on colour ¬
+        # "yellow": '\033[43m',
+        # "green":  '\033[42m',
+        # "blue":   '\033[46m',
+        # "white":  '\033[7m',
+
+        # "red":    '\033[7;31;40m',  # black on colour ¬
+        # "yellow": '\033[7;33;40m',
+        # "green":  '\033[7;32;40m',
+        # "blue":   '\033[7;36;40m',
+        # "white":  '\033[7;37;40m',
+
+        "red":    '\033[1;31;41m',  # colour on colour ¬
+        "yellow": '\033[1;33;43m',
+        "green":  '\033[1;32;42m',
+        "blue":   '\033[1;36;46m',
+        "white":  '\033[1;37;47m',
+
         "grey":   '\033[100m',
-        "end":    '\033[0m',
+        "black":    '\033[0m',
     }
-    return "{}{}{}".format(op_colours[colour], str(string), op_colours['end'])
+    return "{}{}{}".format(op_colours[colour], str(string), op_colours['black'])
 
 
 def render_table(hanabi, move_descriptions=[]):
@@ -328,7 +341,7 @@ def render_info(hanabi, id):
     obscured_hand = []
     for card in hanabi.hands[id]:
         card_info = hanabi.info[id][card]
-        obscured_hand.append((card_info['colour'] if card_info['colour'] else 'end',
+        obscured_hand.append((card_info['colour'] if card_info['colour'] else 'black',
                               card_info['number'] if card_info['number'] else ' '))
     return "     we know is : {}".format(render_cards(obscured_hand)) + \
         "\n     not colour : {}".format(not_colour_row) + \
