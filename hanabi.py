@@ -62,13 +62,11 @@ class HanabiGame():
         return sum(pile[-1][1] for pile in self.table)
 
     def score_meaning(self):
-        score   = 0
-        meaning = None
-        while score <= self.score():
-            if score in self.score_translations:
-                meaning = self.score_translations[score]
-            score += 1
-        return meaning
+        meanings_attained = ((score, meaning) for (score, meaning)
+                              in self.score_translations.items()
+                              if score <= self.score())
+        meaning_score = max(meanings_attained, key=lambda x: x[0])
+        return meaning_score[1]
 
     def scarcity(self, number):
         return 1 if number == 5 else 3 if number == 1 else 2
@@ -228,6 +226,9 @@ class HanabiSession():
         print("waiting for move", end='', flush=True)
         sleep(self.server.before_poll_delay)
         count_checks = 0
+        # todo - improve retry logic to minimise spam and waiting
+        #        suggest immediate prompt [enter] to check once
+        #        or 'p' to poll for a minute, then ask again
         while True:
             count_checks += 1
             print(".", end='', flush=True)
