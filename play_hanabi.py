@@ -147,7 +147,9 @@ def get_local_move(hanabi, player_id):
                                                           if p != player_id]
             inform_string = ", inform {}".format(', '.join(player_strings)) \
                             if hanabi.clocks > 0 else ""
-        move_a = input("(p)lay, (d)iscard{}? ".format(inform_string))
+
+        discard_string = ", (d)iscard" if hanabi.clocks < hanabi.max_clocks else ''
+        move_a         = input("(p)lay{}{}? ".format(discard_string, inform_string))
 
         move_b = 'x'  # initialise to an invalid input
         if len(move_a) == 2:
@@ -198,9 +200,12 @@ def play_move(hanabi, move):
         if move[0] == 'p':
             hanabi.play(hand_index)
             action_description = "played"
-        else:
+        elif move[0] == 'd':
             hanabi.discard(hand_index)
             action_description = "discarded"
+        else:
+            print("illegal move : {}".format(move))
+            exit()
         action_description += " card: {}".format(render_cards([hanabi.last_card]))
     return action_description
 

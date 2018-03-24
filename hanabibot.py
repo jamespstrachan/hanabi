@@ -24,6 +24,8 @@ class HanabiBotBase():
         self.next_info         = [hanabi.info[self.next_id][c] for c in self.next_hand]
         self.playable_cards    = hanabi.playable_cards()
         self.my_playable_cards = self.my_playable_cards(hanabi)
+        self.at_max_clocks     = hanabi.at_max_clocks()
+        self.game_colours      = hanabi.game_colours
 
         self.setup()
 
@@ -166,30 +168,30 @@ class HanabiBasicBot(HanabiBotBase):
  1 :
  2 :
  3 :
- 4 :
- 5 :   1  eg: D8F1j
+ 4 :   1  eg: 3xr9b
+ 5 :   1  eg: Pxx4q
  6 :   1  eg: 7x8MD
- 7 :   4  eg: 4yHkC
+ 7 :   6 █ eg: 4yHkC
  8 :   7 █ eg: QMEvt
- 9 :   5 █ eg: wY5AT
-10 :   7 █ eg: XV8Gs
-11 :   5 █ eg: 2ZdQj
-12 :   7 █ eg: EuBbs
-13 :  12 ██ eg: KF4bJ
-14 :   5 █ eg: 8Qi8z
-15 :  19 ████ eg: Q5wdT
-16 :  10 ██ eg: iGzW5
-17 :  38 █████████ eg: 9YxVS
-18 :  68 ████████████████ eg: zAxhN
-19 : 122 █████████████████████████████ eg: sZVfl
-20 : 175 ██████████████████████████████████████████ eg: K7hlq
-21 : 204 ██████████████████████████████████████████████████ eg: Or3sD
-22 : 192 ███████████████████████████████████████████████ eg: ZGS4Z
-23 :  83 ████████████████████ eg: WbSoO
-24 :  27 ██████ eg: aaaaa
+ 9 :   6 █ eg: mqBpy
+10 :   9 ██ eg: XV8Gs
+11 :   7 █ eg: 2ZdQj
+12 :   5 █ eg: WkrtH
+13 :  11 ██ eg: KF4bJ
+14 :   6 █ eg: 8Qi8z
+15 :  13 ███ eg: iGzW5
+16 :  16 ███ eg: OzI8U
+17 :  30 ███████ eg: sZVfl
+18 :  56 █████████████ eg: K7hlq
+19 : 108 █████████████████████████ eg: 5Edrr
+20 : 178 █████████████████████████████████████████ eg: ZGS4Z
+21 : 212 ██████████████████████████████████████████████████ eg: Or3sD
+22 : 198 ██████████████████████████████████████████████ eg: qbrOj
+23 :  89 ████████████████████ eg: 6Aydn
+24 :  32 ███████ eg: aaaaa
 25 :   8 █ eg: 1rC5V
-7.4% of games ran out of lives
-median: 21.0, mean: 20.0, stdev: 3.0
+8.1% of games ran out of lives
+median: 21.0, mean: 20.0, stdev: 3.1
     """
 
     def get_move(self):
@@ -212,7 +214,7 @@ median: 21.0, mean: 20.0, stdev: 3.0
                 info = self.decide_info(could_play_card, next_hand, next_info, playable_cards)
                 return self.format_move('inform', player_id=self.next_id, info=info)
             else:
-                discard_idx  = self.will_discard_idx(next_info)
+                discard_idx  = self.will_discard_idx(next_info, current_move=False)
                 discard_card = next_hand[discard_idx]
                 is_playable  = self.simplify_cards([discard_card])[0] in playable_cards
                 if self.is_required(discard_card) or is_playable:
@@ -236,8 +238,23 @@ median: 21.0, mean: 20.0, stdev: 3.0
         play_card_idx = self.will_play_idx(self.my_info, my_playable_cards)
         if play_card_idx is not None:
             return self.format_move('play', play_card_idx)
+
         discard_idx = self.will_discard_idx(self.my_info)
-        return self.format_move('discard', discard_idx)
+        if discard_idx is not None:
+            return self.format_move('discard', discard_idx)
+
+        # If we can't discard we need to inform, try to give additional useful info...
+        info = None
+        if will_play_idx is not None:
+            could_play_idx = self.could_play_idx(next_hand, playable_cards)
+            if could_play_idx is not None:
+                could_play_card = next_hand[could_play_idx]
+                info = self.decide_info(could_play_card, next_hand, next_info, playable_cards)
+        # ... else just tell the first card's number
+        if not info:
+            # todo - think of a better last-gasp option, eg smallest number
+            info = next_hand[0][1]
+        return self.format_move('inform', player_id=self.next_id, info=info)
 
     def decide_info(self, card, hand, info, playable_cards):
         """returns colour or number to inform about as one-character string, eg '4' or 'w'"""
@@ -319,8 +336,11 @@ median: 21.0, mean: 20.0, stdev: 3.0
         if len(maybe_hand):
             return maybe_hand[-1]
 
-    def will_discard_idx(self, hand_info):
-        """returns hand index of card considered most discardable, never None"""
+    def will_discard_idx(self, hand_info, current_move=True):
+        """returns hand index of card considered most discardable, or None if clocks are full"""
+        if current_move and self.at_max_clocks:
+            return None
+
         for idx, card_info in enumerate(hand_info):
             if card_info and self.can_discard(card_info):
                 return idx
@@ -365,20 +385,20 @@ class HanabiCheatBot(HanabiBotBase):
 11 :
 12 :
 13 :
-14 :   1  eg: cJyRH
-15 :   1  eg: vvBaX
-16 :   5  eg: GalH0
-17 :   3  eg: HWntT
-18 :  15 █ eg: uh0U3
-19 :  19 ██ eg: URb3q
-20 :  24 ███ eg: Ysjs2
-21 :  68 ████████ eg: iGzW5
-22 : 115 ███████████████ eg: GcaJJ
-23 : 155 ████████████████████ eg: ZGS4Z
-24 : 212 ███████████████████████████ eg: KF4bJ
-25 : 382 ██████████████████████████████████████████████████ eg: aaaaa
+14 :
+15 :   1  eg: cJyRH
+16 :
+17 :   2  eg: Kawa1
+18 :   2  eg: GalH0
+19 :   9  eg: iGzW5
+20 :  14 █ eg: yFcfU
+21 :  23 █ eg: NENG8
+22 :  56 ████ eg: YCbcA
+23 : 104 ████████ eg: sZVfl
+24 : 191 ███████████████ eg: Xrs3O
+25 : 598 ██████████████████████████████████████████████████ eg: aaaaa
 0.0% of games ran out of lives
-median: 24.0, mean: 23.4, stdev: 1.8
+median: 25.0, mean: 24.2, stdev: 1.3
     """
     def __init__(self, hanabi):
         self.hanabi = hanabi
@@ -390,6 +410,10 @@ median: 24.0, mean: 23.4, stdev: 1.8
                          if self.simplify_cards([c])[0] in self.playable_cards]
         if len(playable_idxs):
             return self.format_move('play', playable_idxs[0])
+
+        if self.at_max_clocks:
+            info = self.next_hand[0][1]
+            return self.format_move('inform', player_id=self.next_id, info=info)
 
         junk_idxs = [i for i, c in enumerate(hand)
                      if self.is_junk({'colour': c[0], 'number': c[1]})]
@@ -405,19 +429,19 @@ median: 24.0, mean: 23.4, stdev: 1.8
         return self.format_move('discard', sorted(enumerate(hand), key=lambda c: -c[1][1])[0][0])
 
 
-class HanabiRandomBot():
+class HanabiRandomBot(HanabiBotBase):
     """ Strategy:
         Choose a random move from all possible moves, play it
 
 2 x HanabiRandomBot playing, starting seed aaaaa for 1000 reps
- 0 : 353 ██████████████████████████████████████████████████ eg:LLGW9
- 1 : 308 ███████████████████████████████████████████ eg:Xw9dX
- 2 : 187 ██████████████████████████ eg:0CXrT
- 3 : 103 ██████████████ eg:dLRnq
- 4 :  30 ████ eg:zP0pR
- 5 :  14 █ eg:yRkuP
- 6 :   4  eg:IqNhD
- 7 :   1  eg:rxGHi
+ 0 : 332 ██████████████████████████████████████████████████ eg: aaaaa
+ 1 : 319 ████████████████████████████████████████████████ eg: EZymC
+ 2 : 194 █████████████████████████████ eg: odqOJ
+ 3 :  96 ██████████████ eg: ZMn6G
+ 4 :  32 ████ eg: 1YbZg
+ 5 :  17 ██ eg: SfObt
+ 6 :   6  eg: XnlHy
+ 7 :   4  eg: pDOF1
  8 :
  9 :
 10 :
@@ -436,13 +460,15 @@ class HanabiRandomBot():
 23 :
 24 :
 25 :
-median: 1.0, mean: 1.2, stdev: 1.2
+100.0% of games ran out of lives
+median: 1.0, mean: 1.3, stdev: 1.3
     """
-    def get_move(self, hanabi):
-        moves = [a + b for a in 'pd' for b in 'abcde']
-        if hanabi.clocks:
-            id     = hanabi.next_player_id()
+    def get_move(self):
+        move_types = ['p'] if self.at_max_clocks else ['p', 'd']
+        moves = [a + b for a in move_types for b in 'abcde']
+        if self.clocks:
+            id     = self.next_id
             moves += [str(id) + str(b) for b in range(1, 6)]
-            moves += [str(id) + b[0] for b in hanabi.game_colours]
+            moves += [str(id) + b[0] for b in self.game_colours]
             # todo - only select from currently possible info
         return random.choice(moves)

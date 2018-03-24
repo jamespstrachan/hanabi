@@ -104,7 +104,11 @@ class HanabiGame():
             self.discard_pile.append(card)
         self.turn += 1
 
+    def at_max_clocks(self):
+        return self.clocks >= self.max_clocks
+
     def discard(self, hand_index):
+        assert not self.at_max_clocks(), "can't discard if clocks are full"
         card = self.take_hand_card(hand_index)
         self.discard_pile.append(card)
         self.add_clock()
@@ -371,7 +375,7 @@ class HanabiLocalFileServer(HanabiServerBase):
 
 class MockHanabiServer(HanabiServerBase):
     """Pretends to be to a game server, lets player set up or join a game
-       and always, always discards the fourth card in any hand
+       and plays some junk moves
     """
     before_poll_delay = 0
     seed  = "iFduD"
@@ -380,19 +384,19 @@ class MockHanabiServer(HanabiServerBase):
             "seed":        seed,
             "num_players": 2,
             "players":     ["Silly Bot"],
-            "moves":       ["dd"]
+            "moves":       ["21"]
         },
         '!New Test game for three players': {
             "seed":        seed,
             "num_players": 3,
             "players":     ["Silly Bot", "Dumb Bot"],
-            "moves":       ["dd", "dd"]
+            "moves":       ["21", "pa"]
         },
         'Partially played game for three players': {
             "seed":        seed,
             "num_players": 3,
             "players":     ["Athos", "Porthos", "Aramis"],
-            "moves":       ["dd", "dd", "dd", "dd"]
+            "moves":       ["21", "pa", "21", "pa"]
         },
     }
 
@@ -420,7 +424,7 @@ class MockHanabiServer(HanabiServerBase):
     def submit_move(self, game_title, move):
         super().submit_move(game_title, move)
         for i in range(self.games[game_title]['num_players'] - 1):
-            super().submit_move(game_title, "dd")
+            super().submit_move(game_title, "21")
 
     def update_game(self, game_title, game_content, new_filename=None):
         if new_filename:
